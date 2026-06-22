@@ -55,6 +55,7 @@ const ICONS={
   trash:'<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/>',
   building:'<rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M16 6h.01M8 10h.01M16 10h.01M8 14h.01M16 14h.01"/>',
   upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
+  download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
 };
 function Icon({n,size=16,color="currentColor",sw=2}){return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" style={{display:"block"}} dangerouslySetInnerHTML={{__html:ICONS[n]}}/>;}
 
@@ -476,14 +477,99 @@ function AllocModal({r,onClose,onSave,fixedProj}){
 /* ── 4. APPROVALS ────────────────────────────────────────────────── */
 function Approvals({queue,setQueue,show}){
   const [tab,setTab]=useState("Pending");const [open,setOpen]=useState(null);const [sel,setSel]=useState({});const [reject,setReject]=useState(null);const [reason,setReason]=useState("");
+  const [exportEmployee,setExportEmployee]=useState(null); // 'all' | employee_object | null
+  const [exportMonth,setExportMonth]=useState("May 2026");
+
+  const handleExportTimesheets = () => {
+    const monthMap = {
+      "January": 0, "February": 1, "March": 2, "April": 3, "May": 4, "June": 5,
+      "July": 6, "August": 7, "September": 8, "October": 9, "November": 10, "December": 11
+    };
+    const [monthStr, yearStr] = exportMonth.split(" ");
+    const targetMonth = monthMap[monthStr];
+    const targetYear = parseInt(yearStr, 10);
+
+    const csvRows = [
+      ["Employee Name", "Project Name", "Date", "Day", "Hours Logged", "Work Description", "Timesheet Status"]
+    ];
+
+    const parseLogDate = (dateStr) => {
+      const parts = dateStr.split(" ");
+      const day = parseInt(parts[0], 10);
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const mIdx = months.indexOf(parts[1]);
+      return new Date(2026, mIdx >= 0 ? mIdx : 4, day);
+    };
+
+    const pmProjectIds = PROJECTS.filter(p => p.pm === "Sarah Jenkins" || p.pmId === "sarah").map(p => p.id);
+    const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+    queue.forEach(q => {
+      if (exportEmployee !== "all" && q.emp !== exportEmployee.name) return;
+      if (pmProjectIds.includes(q.proj)) {
+        const entryDate = parseLogDate(q.date);
+        
+        if (entryDate.getMonth() === targetMonth && entryDate.getFullYear() === targetYear) {
+          const formattedDate = entryDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+          const projName = PROJ_META[q.proj] || q.proj;
+          
+          (q.daily || []).forEach((dayLog, dayIdx) => {
+            if (dayLog && dayLog.h > 0) {
+              const logDate = new Date(entryDate);
+              logDate.setDate(logDate.getDate() + dayIdx);
+              const formattedLogDate = logDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+              
+              csvRows.push([
+                q.emp,
+                projName,
+                formattedLogDate,
+                DAYS[dayIdx],
+                dayLog.h.toString(),
+                (dayLog.d || "").replace(/"/g, '""'),
+                q.status
+              ]);
+            }
+          });
+        }
+      }
+    });
+
+    if (csvRows.length === 1) {
+      const displayTargetName = exportEmployee === "all" ? "any resources" : exportEmployee.name;
+      show(`No timesheet entries found for ${displayTargetName} in ${exportMonth} under your projects`);
+      return;
+    }
+
+    const csvContent = "\uFEFF" + csvRows.map(e => e.map(val => `"${val}"`).join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    const filename = exportEmployee === "all"
+      ? `timesheets_export_${exportMonth.replace(" ", "_").toLowerCase()}.csv`
+      : `timesheet_${exportEmployee.name.replace(/\s+/g, "_").toLowerCase()}_${exportMonth.replace(" ", "_").toLowerCase()}.csv`;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    const displayTargetNameMsg = exportEmployee === "all" ? "All active resources" : exportEmployee.name;
+    show(`Timesheets exported for ${displayTargetNameMsg} (${exportMonth})`);
+    setExportEmployee(null);
+  };
+
   const list=queue.filter(q=>q.status===tab);
   const counts={Pending:queue.filter(q=>q.status==="Pending").length,Approved:queue.filter(q=>q.status==="Approved").length,Rejected:queue.filter(q=>q.status==="Rejected").length};
   const selIds=Object.keys(sel).filter(k=>sel[k]);
   const approve=ids=>{setQueue(queue.map(q=>ids.includes(q.id)?{...q,status:"Approved"}:q));setSel({});show(`${ids.length} approved`);};
   return <>
-    <div style={{display:"flex",gap:4,marginBottom:14,borderBottom:`1px solid ${C.line}`}}>
-      {["Pending","Approved","Rejected"].map(t=><button key={t} className="tab" onClick={()=>{setTab(t);setOpen(null);setSel({});}}
-        style={{border:"none",background:"none",cursor:"pointer",padding:"8px 12px",fontSize:13,fontWeight:tab===t?600:500,color:tab===t?C.ink:C.ink3,borderBottom:`2px solid ${tab===t?C.ink:"transparent"}`,marginBottom:-1}}>{t} <span className="num" style={{color:C.ink3}}>· {counts[t]}</span></button>)}</div>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`1px solid ${C.line}`,marginBottom:14}}>
+      <div style={{display:"flex",gap:4}}>
+        {["Pending","Approved","Rejected"].map(t=><button key={t} className="tab" onClick={()=>{setTab(t);setOpen(null);setSel({});}}
+          style={{border:"none",background:"none",cursor:"pointer",padding:"8px 12px",fontSize:13,fontWeight:tab===t?600:500,color:tab===t?C.ink:C.ink3,borderBottom:`2px solid ${tab===t?C.ink:"transparent"}`,marginBottom:-1}}>{t} <span className="num" style={{color:C.ink3}}>· {counts[t]}</span></button>)}
+      </div>
+      <button className="ghost" style={{...btnGhost,padding:"7px 12px",marginBottom:-2}} onClick={()=>setExportEmployee("all")}><Icon n="download" size={14} color={C.ink2}/> Export Timesheets</button>
+    </div>
 
     {tab==="Pending"&&selIds.length>0&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",border:`1px solid ${C.line}`,borderRadius:8,marginBottom:12,background:C.accentSoft}}>
       <span style={{fontSize:12.5,color:C.ink}}>{selIds.length} selected</span>
@@ -500,12 +586,18 @@ function Approvals({queue,setQueue,show}){
           <td className="num" style={{...td,textAlign:"right"}}>{q.alloc}h</td><td className="num" style={{...td,textAlign:"right",color:C.ink}}>{q.logged}h</td>
           <td className="num" style={{...td,textAlign:"right",color:v>0?C.warn:v<0?C.ink3:C.ok}}>{v>0?"+":""}{v}h</td>
           <td style={td}>{q.date}</td>
-          <td style={{...td,textAlign:"right"}}><button className="lnk" onClick={()=>setOpen(exp?null:q.id)} style={{border:"none",background:"none",color:C.ink2,fontSize:12.5,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:4}}>Review <Icon n={exp?"down":"right"} size={13} color={C.ink3}/></button></td></tr>
+          <td style={{...td,textAlign:"right",whiteSpace:"nowrap"}}>
+            <button title="Export" className="ghost" onClick={()=>setExportEmployee({name:q.emp})} style={{border:`1px solid ${C.line}`,background:C.surface,borderRadius:6,padding:6,cursor:"pointer",marginRight:8}}><Icon n="download" size={13} color={C.ink2}/></button>
+            <button className="lnk" onClick={()=>setOpen(exp?null:q.id)} style={{border:"none",background:"none",color:C.ink2,fontSize:12.5,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:4}}>Review <Icon n={exp?"down":"right"} size={13} color={C.ink3}/></button>
+          </td></tr>
         {exp&&<tr><td colSpan={tab==="Pending"?8:7} style={{padding:0,borderBottom:`1px solid ${C.line}`,background:"#FBFBF9"}}>
           <div style={{padding:"14px 16px"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
               <div style={{fontSize:11,color:C.ink3,textTransform:"uppercase",letterSpacing:".05em"}}>Daily entries · {PROJ_META[q.proj]}</div>
-              <div className="num" style={{fontSize:12,color:C.ink2}}>Week total <b style={{color:C.ink}}>{q.daily.reduce((a,b)=>a+(b.h||0),0)}h</b></div></div>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <button className="ghost" style={{...btnGhost,padding:"3px 8px",fontSize:11,display:"flex",alignItems:"center",gap:4}} onClick={()=>setExportEmployee({name:q.emp})}><Icon n="download" size={11} color={C.ink2}/> Export Month</button>
+                <div className="num" style={{fontSize:12,color:C.ink2}}>Week total <b style={{color:C.ink}}>{q.daily.reduce((a,b)=>a+(b.h||0),0)}h</b></div>
+              </div></div>
             <div style={{border:`1px solid ${C.line}`,borderRadius:8,overflow:"hidden",marginBottom:q.status==="Rejected"?12:14}}>
               {["Mon","Tue","Wed","Thu","Fri"].map((d,i)=>{const e=q.daily[i]||{h:0,d:""};return <div key={d} style={{display:"flex",gap:14,padding:"10px 14px",borderBottom:i<4?`1px solid ${C.line}`:"none",background:C.surface,alignItems:"flex-start"}}>
                 <div style={{width:54,flexShrink:0}}><div style={{fontSize:11,color:C.ink3}}>{d}</div><div className="num" style={{fontSize:14,fontWeight:600,color:e.h?C.ink:C.ink3,marginTop:1}}>{e.h?`${e.h}h`:"—"}</div></div>
@@ -521,6 +613,14 @@ function Approvals({queue,setQueue,show}){
       footer={<><button className="demo" style={btnGhost} onClick={()=>setReject(null)}>Cancel</button>
         <button className="primary" style={{...btnPrimary,background:C.err,opacity:reason.trim()?1:.5}} disabled={!reason.trim()} onClick={()=>{setQueue(queue.map(x=>x.id===reject.id?{...x,status:"Rejected",comment:reason}:x));setReject(null);show("Sent back with comment");}}>Reject & notify</button></>}>
       <Field label="Comment (required)" hint="The employee can edit and resubmit after reading this."><textarea style={{...inputStyle,minHeight:84,resize:"vertical"}} value={reason} onChange={e=>setReason(e.target.value)} placeholder="e.g. Please explain the extra 5 hours logged on Wednesday."/></Field>
+    </Modal>}
+
+    {exportEmployee&&<Modal title={exportEmployee === "all" ? "Export resource timesheets" : `Export timesheet: ${exportEmployee.name}`} onClose={()=>setExportEmployee(null)}
+      footer={<><button className="demo" style={btnGhost} onClick={()=>setExportEmployee(null)}>Cancel</button>
+        <button className="primary" style={btnPrimary} onClick={handleExportTimesheets}><Icon n="download" size={14} color="#fff"/> Export CSV</button></>}>
+      <div style={{fontSize:13,color:C.ink,marginBottom:14}}>Select the month to export timesheet logs for {exportEmployee === "all" ? "resources on your projects" : exportEmployee.name}:</div>
+      <div style={{marginBottom:12}}><div style={{fontSize:12,color:C.ink2,marginBottom:6}}>Select Month</div>
+        <select style={inputStyle} value={exportMonth} onChange={e=>setExportMonth(e.target.value)}>{["May 2026","June 2026","July 2026"].map(m=><option key={m} value={m}>{m}</option>)}</select></div>
     </Modal>}
   </>;
 }
@@ -650,10 +750,11 @@ function Login({onLogin}){const [email,setEmail]=useState(PM.email);const [pw,se
 }
 
 /* ── CLIENT DIRECTORY ────────────────────────────────────────────── */
-function clientStats(c,projects){const ps=projects.filter(p=>p.client===c.name);
+function clientStats(c,projects){const ps=projects.filter(p=>p.clientId===c.id||p.client===c.name);
   return {projects:ps,total:ps.length,active:ps.filter(p=>p.status==="Active").length,pms:Array.from(new Set(ps.map(p=>p.pm).filter(Boolean)))};}
 function ClientDirectory({clients,projects,onOpen}){
   const [q,setQ]=useState("");const [ind,setInd]=useState("All industries");const [country,setCountry]=useState("All countries");const [filt,setFilt]=useState("All clients");
+  const [expandedId,setExpandedId]=useState(null);
   const inds=["All industries",...Array.from(new Set(clients.map(c=>c.industry)))];
   const countries=["All countries",...Array.from(new Set(clients.map(c=>c.country)))];
   const list=clients.filter(c=>{const st=clientStats(c,projects);
@@ -663,22 +764,90 @@ function ClientDirectory({clients,projects,onOpen}){
     if(filt==="Inactive clients"&&c.status!=="Inactive")return false;
     if(filt==="With active projects"&&st.active===0)return false;
     if(filt==="Without projects"&&st.total>0)return false;
-    return (c.name+c.contact+c.industry+c.country).toLowerCase().includes(q.toLowerCase());});
+    const searchStr = (c.name+(c.contact||"")+(c.industry||"")+(c.country||"")+(c.phone||"")+(c.email||"")+(c.address||"")+(c.notes||"")).toLowerCase();
+    return searchStr.includes(q.toLowerCase());});
   return <Panel pad={false} title="Client directory" sub="Every project belongs to a client"
     right={<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-      <SearchBox value={q} onChange={setQ} ph="Client, contact, industry"/>
+      <SearchBox value={q} onChange={setQ} ph="Search client name, contact, notes..."/>
       <Select value={ind} onChange={setInd} opts={inds}/><Select value={country} onChange={setCountry} opts={countries}/>
       <Select value={filt} onChange={setFilt} opts={["All clients","Active clients","Inactive clients","With active projects","Without projects"]}/></div>}>
     {list.length===0?<Empty msg="No clients match the current filters."/>:
-    <table style={{width:"100%",borderCollapse:"collapse"}}>
-      <thead><tr><th style={th}>Client</th><th style={th}>Industry</th><th style={th}>Primary contact</th><th style={th}>Country</th><th style={{...th,textAlign:"right"}}>Projects</th><th style={{...th,textAlign:"right"}}>Active</th><th style={th}>PMs</th><th style={{...th,textAlign:"right"}}></th></tr></thead>
-      <tbody>{list.map(c=>{const s=clientStats(c,projects);return <tr key={c.id} className="row" style={{opacity:c.status==="Inactive"?.6:1}}>
-        <td style={{...td,color:C.ink,fontWeight:500}}>{c.name}{c.status==="Inactive"&&<span style={{marginLeft:8}}><Tag s="Completed"/></span>}</td>
-        <td style={td}>{c.industry}</td><td style={td}>{c.contact}</td><td style={td}>{c.country}</td>
-        <td className="num" style={{...td,textAlign:"right"}}>{s.total}</td>
-        <td className="num" style={{...td,textAlign:"right",color:s.active?C.ok:C.ink3}}>{s.active}</td>
-        <td style={{...td,fontSize:12}}>{s.pms.length?s.pms.join(", "):"—"}</td>
-        <td style={{...td,textAlign:"right"}}><button className="lnk" onClick={()=>onOpen(c)} style={{border:"none",background:"none",color:C.ink2,fontSize:12.5,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5}}>View <Icon n="right" size={13} color={C.ink3}/></button></td></tr>;})}</tbody></table>}
+    <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse"}}>
+      <thead><tr>
+        <th style={{...th,width:40}}></th>
+        <th style={th}>Client</th>
+        <th style={th}>Primary contact</th>
+        <th style={th}>Phone</th>
+        <th style={th}>Email</th>
+        <th style={th}>Website</th>
+        <th style={th}>Office address</th>
+        <th style={th}>Notes</th>
+        <th style={{...th,textAlign:"right"}}>Projects</th>
+        <th style={{...th,textAlign:"right"}}></th>
+      </tr></thead>
+      <tbody>{list.map(c=>{
+        const s=clientStats(c,projects);
+        const isExpanded=expandedId===c.id;
+        return <React.Fragment key={c.id}>
+          <tr className="row" style={{opacity:c.status==="Inactive"?.6:1}}>
+            <td style={td}>
+              <button onClick={()=>setExpandedId(isExpanded?null:c.id)} style={{border:"none",background:"none",cursor:"pointer",padding:4,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <Icon n={isExpanded?"down":"right"} size={13} color={C.ink3}/>
+              </button>
+            </td>
+            <td style={{...td,fontWeight:600,color:C.ink}}>
+              <button onClick={()=>setExpandedId(isExpanded?null:c.id)} style={{border:"none",background:"none",cursor:"pointer",color:C.ink,fontWeight:600,padding:0,fontSize:13,textAlign:"left"}}>
+                {c.name}
+              </button>
+            </td>
+            <td style={td}>{c.contact||"—"}</td>
+            <td className="num" style={td}>{c.phone||"—"}</td>
+            <td style={td}>{c.email?<a href={`mailto:${c.email}`} style={{color:C.accent,textDecoration:"none"}}>{c.email}</a>:"—"}</td>
+            <td style={td}>{c.website?<a href={c.website.startsWith("http")?c.website:`https://${c.website}`} target="_blank" rel="noopener noreferrer" style={{color:C.accent}}>{c.website}</a>:"—"}</td>
+            <td style={td}>{c.address||"—"}</td>
+            <td style={{...td,maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={c.notes}>{c.notes||"—"}</td>
+            <td className="num" style={{...td,textAlign:"right",fontWeight:500}}>
+              <button onClick={()=>setExpandedId(isExpanded?null:c.id)} style={{border:"none",background:"none",color:C.accent,cursor:"pointer",fontWeight:600,fontSize:12.5}}>
+                {s.total} {s.total===1?"project":"projects"}
+              </button>
+            </td>
+            <td style={{...td,textAlign:"right"}}>
+              <button title="View Profile Drawer" className="ghost" onClick={()=>onOpen(c)} style={{border:`1px solid ${C.line}`,background:C.surface,borderRadius:6,padding:"5px 7px",cursor:"pointer"}}>
+                <Icon n="eye" size={13} color={C.ink2}/>
+              </button>
+            </td>
+          </tr>
+          {isExpanded&&<tr>
+            <td colSpan={10} style={{padding:"0 0 12px 0",background:"#FBFBF9",borderBottom:`1px solid ${C.line}`}}>
+              <div style={{padding:"14px 20px 14px 52px"}}>
+                <div style={{fontSize:11,color:C.ink3,textTransform:"uppercase",letterSpacing:".05em",marginBottom:8,fontWeight:600}}>Projects under {c.name}</div>
+                {s.projects.length===0?<div style={{fontSize:12.5,color:C.ink3,padding:"10px 0"}}>No projects registered for this client.</div>:
+                <table style={{width:"100%",borderCollapse:"collapse",background:C.surface,border:`1px solid ${C.line}`,borderRadius:6}}>
+                  <thead><tr>
+                    <th style={{...th,padding:"8px 10px",fontSize:10.5}}>Project</th>
+                    <th style={{...th,padding:"8px 10px",fontSize:10.5}}>PM</th>
+                    <th style={{...th,padding:"8px 10px",fontSize:10.5}}>Timeline</th>
+                    <th style={{...th,padding:"8px 10px",fontSize:10.5}}>Priority</th>
+                    <th style={{...th,padding:"8px 10px",fontSize:10.5,textAlign:"right"}}>Estimated Hours</th>
+                    <th style={{...th,padding:"8px 10px",fontSize:10.5,textAlign:"right"}}>Logged Hours</th>
+                    <th style={{...th,padding:"8px 10px",fontSize:10.5}}>Status</th>
+                  </tr></thead>
+                  <tbody>{s.projects.map(p=>(
+                    <tr key={p.id} className="row">
+                      <td style={{...td,padding:"8px 10px",fontWeight:500,color:C.ink}}>{p.name}</td>
+                      <td style={{...td,padding:"8px 10px"}}>{p.pm||"Sarah Jenkins"}</td>
+                      <td style={{...td,padding:"8px 10px"}} className="num">{p.start} → {p.end}</td>
+                      <td style={{...td,padding:"8px 10px"}}><Tag s={p.priority} strong/></td>
+                      <td style={{...td,padding:"8px 10px",textAlign:"right"}} className="num">{p.estimated}h</td>
+                      <td style={{...td,padding:"8px 10px",textAlign:"right"}} className="num">{p.logged}h</td>
+                      <td style={{...td,padding:"8px 10px"}}><Tag s={p.status} strong/></td>
+                    </tr>
+                  ))}</tbody>
+                </table>}
+              </div>
+            </td>
+          </tr>}
+        </React.Fragment>;})}</tbody></table></div>}
   </Panel>;
 }
 function ClientDetail({client,projects,nameOf,onClose}){

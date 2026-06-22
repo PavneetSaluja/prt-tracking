@@ -130,7 +130,12 @@ const CLIENTS0=[
   {id:"cl_internal",name:"Internal Platform",industry:"Internal",contact:"Platform Team",email:"platform@pulseorganizer.io",phone:"—",website:"—",country:"India",address:"—",notes:"Internal design-system initiative.",status:"Active"},
   {id:"cl_helios",name:"Helios Logistics",industry:"Logistics",contact:"Sandeep Verma",email:"sandeep@helios.co",phone:"+91 99000 22110",website:"helioslogistics.co",country:"India",address:"Pune",notes:"New mobile app — pre-kickoff.",status:"Active"},
   {id:"cl_infosys",name:"Infosys",industry:"IT Services",contact:"Meera Iyer",email:"meera@infosys.com",phone:"+91 80 2852 0261",website:"infosys.com",country:"India",address:"Bengaluru",notes:"Prospect — no active projects.",status:"Active"},
+  {id:"cl_infoedge",name:"Info Edge",industry:"Internet",contact:"Rohit Sethi",email:"rohit@infoedge.com",phone:"+91 120 333 0000",website:"infoedge.com",country:"India",address:"Noida",notes:"Prospect.",status:"Active"},
+  {id:"cl_mumbai",name:"Mumbai client",industry:"Consulting",contact:"Rohan Sharma",email:"rohan@mumbaiclient.com",phone:"+91 99999 88888",website:"mumbaiclient.com",country:"India",address:"Nariman Point, Mumbai",notes:"Partner with outsourced resource pool.",status:"Active"},
   {id:"cl_infobeans",name:"InfoBeans",industry:"IT Services",contact:"Kavya Nair",email:"kavya@infobeans.com",phone:"+91 731 471 1100",website:"infobeans.com",country:"India",address:"Indore",notes:"Prospect.",status:"Inactive"},
+  {id:"cl_tcs",name:"Tata Consultancy Services (TCS)",industry:"IT Services",contact:"Rajesh Gopinathan",email:"rajesh@tcs.com",phone:"+91 22 6778 9999",website:"tcs.com",country:"India",address:"Mumbai",notes:"Major enterprise lead.",status:"Active"},
+  {id:"cl_wipro",name:"Wipro Technologies",industry:"IT Services",contact:"Thierry Delaporte",email:"thierry@wipro.com",phone:"+91 80 2844 0011",website:"wipro.com",country:"India",address:"Bengaluru",notes:"Prospect.",status:"Active"},
+  {id:"cl_cognizant",name:"Cognizant",industry:"IT Consulting",contact:"Brian Humphries",email:"brian@cognizant.com",phone:"+1 201 801 0233",website:"cognizant.com",country:"USA",address:"Teaneck, USA",notes:"Exploratory talks on cloud ops.",status:"Active"}
 ];
 const avail=u=>u===0?"Available":u<100?"Partially Allocated":u===100?"Fully Allocated":"Overallocated";
 const availTone=u=>u===0?C.ok:u<100?C.accent:u===100?C.ink2:C.warn;
@@ -349,6 +354,79 @@ function PMs({people,q}){
 function People({people,setPeople,show,q}){
   const [dept,setDept]=useState("All departments");const [role,setRole]=useState("All roles");const [stat,setStat]=useState("All statuses");const [av,setAv]=useState("All availability");
   const [add,setAdd]=useState(false);const [edit,setEdit]=useState(null);const [view,setView]=useState(null);
+  const [exportEmployee,setExportEmployee]=useState(null); // 'all' | employee_object | null
+  const [exportMonth,setExportMonth]=useState("June 2026");
+
+  const handleExportTimesheets = () => {
+    const monthMap = {
+      "January": 0, "February": 1, "March": 2, "April": 3, "May": 4, "June": 5,
+      "July": 6, "August": 7, "September": 8, "October": 9, "November": 10, "December": 11
+    };
+    const [monthStr, yearStr] = exportMonth.split(" ");
+    const targetMonth = monthMap[monthStr];
+    const targetYear = parseInt(yearStr, 10);
+
+    const getEmpName = (empId) => (people.find(p => p.id === empId) || {}).name || empId;
+    
+    const csvRows = [
+      ["Employee ID", "Employee Name", "Project Name", "Date", "Hours Logged", "Work Description", "Timesheet Status"]
+    ];
+
+    const parseLogDate = (dateStr) => {
+      const parts = dateStr.split(" ");
+      const day = parseInt(parts[0], 10);
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const mIdx = months.indexOf(parts[1]);
+      return new Date(2026, mIdx >= 0 ? mIdx : 5, day);
+    };
+
+    Object.keys(WORKLOG).forEach(empId => {
+      if (exportEmployee !== "all" && empId !== exportEmployee.id) return;
+      const logs = WORKLOG[empId] || [];
+      
+      logs.forEach(logEntry => {
+        const entryDate = parseLogDate(logEntry.date);
+        
+        if (entryDate.getMonth() === targetMonth && entryDate.getFullYear() === targetYear) {
+          const formattedDate = entryDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+          const projName = (PROJECTS.find(p => p.id === logEntry.proj) || {}).name || logEntry.proj;
+          csvRows.push([
+            empId,
+            getEmpName(empId),
+            projName,
+            formattedDate,
+            logEntry.h.toString(),
+            (logEntry.d || "").replace(/"/g, '""'),
+            TS[empId] || "Submitted"
+          ]);
+        }
+      });
+    });
+
+    if (csvRows.length === 1) {
+      const displayTargetName = exportEmployee === "all" ? "any resources" : exportEmployee.name;
+      show(`No timesheet entries found for ${displayTargetName} in ${exportMonth}`);
+      return;
+    }
+
+    const csvContent = "\uFEFF" + csvRows.map(e => e.map(val => `"${val}"`).join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    const filename = exportEmployee === "all"
+      ? `timesheets_export_${exportMonth.replace(" ", "_").toLowerCase()}.csv`
+      : `timesheet_${exportEmployee.id}_${exportMonth.replace(" ", "_").toLowerCase()}.csv`;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    const displayTargetNameMsg = exportEmployee === "all" ? "All active resources" : exportEmployee.name;
+    show(`Timesheets exported for ${displayTargetNameMsg} (${exportMonth})`);
+    setExportEmployee(null);
+  };
+
   const depts=["All departments",...Array.from(new Set(people.map(p=>p.dept)))];
   const list=people.filter(p=>(dept==="All departments"||p.dept===dept)&&(role==="All roles"||p.role===role)&&(stat==="All statuses"||p.status===stat)&&(av==="All availability"||avail(p.util)===av)&&matches(q,p.name,p.id,p.designation,p.dept,p.project));
   return <>
@@ -357,6 +435,7 @@ function People({people,setPeople,show,q}){
       <Select value={stat} onChange={setStat} opts={["All statuses","Active","Inactive"]}/>
       <Select value={av} onChange={setAv} opts={["All availability","Available","Partially Allocated","Fully Allocated","Overallocated"]}/>
       <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:12,color:C.ink3}}>{list.length} of {people.length}</span>
+        <button className="ghost" style={{...btnGhost,padding:"7px 12px"}} onClick={()=>setExportEmployee("all")}><Icon n="download" size={14} color={C.ink2}/> Export Timesheets</button>
         <button className="primary" style={{...btnPrimary,padding:"7px 12px"}} onClick={()=>setAdd(true)}><Icon n="plus" size={14} color="#fff"/> Add employee</button></div></div>
     <Panel pad={false}><div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:900}}>
       <thead><tr><th style={th}>Employee</th><th style={th}>Dept</th><th style={th}>Designation</th><th style={th}>Role</th><th style={th}>Current project</th><th style={th}>Availability</th><th style={th}>Timesheet</th><th style={th}>Manager</th><th style={th}>Status</th><th style={{...th,textAlign:"right"}}></th></tr></thead>
@@ -370,20 +449,31 @@ function People({people,setPeople,show,q}){
         <td style={td}><Tag s={p.status}/></td>
         <td style={{...td,textAlign:"right",whiteSpace:"nowrap"}}>
           <button title="View" className="ghost" onClick={()=>setView(p)} style={{border:`1px solid ${C.line}`,background:C.surface,borderRadius:6,padding:6,cursor:"pointer",marginRight:6}}><Icon n="eye" size={13} color={C.ink2}/></button>
+          <button title="Export" className="ghost" onClick={()=>setExportEmployee(p)} style={{border:`1px solid ${C.line}`,background:C.surface,borderRadius:6,padding:6,cursor:"pointer",marginRight:6}}><Icon n="download" size={13} color={C.ink2}/></button>
           <button title="Edit" className="ghost" onClick={()=>setEdit(p)} style={{border:`1px solid ${C.line}`,background:C.surface,borderRadius:6,padding:6,cursor:"pointer",marginRight:6}}><Icon n="edit" size={13} color={C.ink2}/></button>
           <button title={p.status==="Active"?"Deactivate":"Reactivate"} className="ghost" onClick={()=>{setPeople(people.map(x=>x.id===p.id?{...x,status:x.status==="Active"?"Inactive":"Active"}:x));show(p.status==="Active"?"Employee deactivated":"Employee reactivated");}} style={{border:`1px solid ${C.line}`,background:C.surface,borderRadius:6,padding:6,cursor:"pointer"}}><Icon n="ban" size={13} color={p.status==="Active"?C.err:C.ok}/></button></td></tr>)}</tbody></table></div></Panel>
     {add&&<EmployeeForm onClose={()=>setAdd(false)} onSave={e=>{setPeople([{...e,project:"—",last:"—",util:0},...people]);setAdd(false);show("Employee added");}}/>}
     {edit&&<EmployeeForm emp={edit} onClose={()=>setEdit(null)} onSave={e=>{setPeople(people.map(x=>x.id===edit.id?{...x,...e}:x));setEdit(null);show("Employee updated");}}/>}
-    {view&&<PersonDetail p={view} onClose={()=>setView(null)}/>}
+    {view&&<PersonDetail p={view} onClose={()=>setView(null)} onExport={(emp)=>setExportEmployee(emp)}/>}
+    {exportEmployee&&<Modal title={exportEmployee === "all" ? "Export resource timesheets" : `Export timesheet: ${exportEmployee.name}`} onClose={()=>setExportEmployee(null)}
+      footer={<><button className="demo" style={btnGhost} onClick={()=>setExportEmployee(null)}>Cancel</button>
+        <button className="primary" style={btnPrimary} onClick={handleExportTimesheets}><Icon n="download" size={14} color="#fff"/> Export CSV</button></>}>
+      <div style={{fontSize:13,color:C.ink,marginBottom:14}}>Select the month to export timesheet logs for {exportEmployee === "all" ? "all active resources" : exportEmployee.name}:</div>
+      <div style={{marginBottom:12}}><div style={{fontSize:12,color:C.ink2,marginBottom:6}}>Select Month</div>
+        <select style={inputStyle} value={exportMonth} onChange={e=>setExportMonth(e.target.value)}>{["June 2026","July 2026","August 2026"].map(m=><option key={m} value={m}>{m}</option>)}</select></div>
+    </Modal>}
   </>;
 }
-function PersonDetail({p,onClose}){
+function PersonDetail({p,onClose,onExport}){
   const log=WORKLOG[p.id]||[];const isRes=p.role==="Resource";
   return <><div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(20,20,25,.18)",zIndex:80}}/>
     <aside style={{position:"fixed",top:0,right:0,height:"100%",width:440,maxWidth:"94%",background:C.surface,borderLeft:`1px solid ${C.line}`,zIndex:90,display:"flex",flexDirection:"column"}}>
       <div style={{padding:"16px 22px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div><div style={{fontSize:14,fontWeight:600,color:C.ink}}>{p.name}</div><div style={{fontSize:11.5,color:C.ink3}} className="num">{p.id}</div></div>
-        <button className="ghost" onClick={onClose} style={{border:"none",background:"none",borderRadius:6,padding:5,cursor:"pointer"}}><Icon n="x" size={16} color={C.ink2}/></button></div>
+        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          <button className="ghost" onClick={()=>onExport(p)} title="Export Timesheet" style={{border:"none",background:"none",borderRadius:6,padding:5,cursor:"pointer",display:"flex"}}><Icon n="download" size={15} color={C.ink2}/></button>
+          <button className="ghost" onClick={onClose} style={{border:"none",background:"none",borderRadius:6,padding:5,cursor:"pointer",display:"flex"}}><Icon n="x" size={16} color={C.ink2}/></button>
+        </div></div>
       <div style={{padding:22,overflowY:"auto",flex:1}}>
         <div style={{fontSize:11,color:C.ink3,textTransform:"uppercase",letterSpacing:".05em",marginBottom:8}}>Overview</div>
         <dl style={{margin:"0 0 20px"}}>{[["Role",p.role],["Department",p.dept],["Designation",p.designation],["Manager",p.manager],["Current project",p.project],["Last project",p.last],["Joined",p.joined],["Status",p.status]].map(([k,v])=>
