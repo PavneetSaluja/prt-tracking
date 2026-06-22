@@ -7,7 +7,7 @@
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<style>html,body{margin:0;padding:0;background:#F6F5F1}#root{min-height:100vh}</style>
+<style>html,body{margin:0;padding:0;background:#F6F5F1}#root{min-height:100vh} .sidebar-item:hover{background:rgba(255,255,255,0.08)!important;color:#ffffff!important;}</style>
 </head>
 <body>
 <div id="root"></div>
@@ -680,49 +680,241 @@ function Dashboard({onLogout,toast,show}){
     />
   );
 
-  return <div className="pulse-root" style={{minHeight:"100vh",background:C.paper,display:"flex",flexDirection:"column"}}>
-    {/* header */}
-    <header style={{background:C.surface,borderBottom:`1px solid ${C.line}`,padding:mobile?"0 16px":"0 28px",height:58,display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:30}}>
-      <div style={{display:"flex",alignItems:"center",gap:10}}>
-        <div style={{width:28,height:28,borderRadius:7,background:C.ink,display:"flex",alignItems:"center",justifyContent:"center"}}><Icon n="clock" size={15} color="#fff"/></div>
-        <div style={{display:"flex",alignItems:"baseline",gap:8}}><span style={{fontSize:16,fontWeight:700,color:C.ink,letterSpacing:"-0.02em"}}>Pulse</span>{!mobile&&<span style={{fontSize:12.5,color:C.ink3}}>Dashboard</span>}</div></div>
-      <div style={{display:"flex",alignItems:"center",gap:mobile?10:18}}>
-        <div style={{display:"flex",alignItems:"center",gap:2,color:C.ink2}}>
-          <button className="ghost" onClick={()=>setWeekIdx(w=>w-1)} style={navBtn}><Icon n="left" size={16} color={C.ink2}/></button>
-          <span className="num" style={{minWidth:mobile?116:140,textAlign:"center",fontSize:13,color:C.ink}}>{activeTimesheet.weekLabel}</span>
-          <button className="ghost" onClick={()=>setWeekIdx(w=>w+1)} style={navBtn}><Icon n="right" size={16} color={C.ink2}/></button></div>
-        {!mobile&&<StatusPill s={activeTimesheet.status}/>}
-        <button onClick={()=>setProfileOpen(true)} style={{display:"flex",alignItems:"center",gap:8,border:`1px solid ${C.line}`,borderRadius:99,padding:"3px 3px 3px 11px",background:C.surface,cursor:"pointer"}}>
-          {!mobile&&<span style={{fontSize:12.5,fontWeight:500,color:C.ink}}>{USER.name.split(" ")[0]}</span>}
-          <span style={{width:28,height:28,borderRadius:99,background:C.ink,color:"#fff",fontSize:11,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center"}}>{USER.name.split(" ").map(n=>n[0]).join("")}</span></button>
+  return (
+    <div className="pulse-root" style={{ minHeight: "100vh", background: "#F8FAFC", display: "flex", flexDirection: mobile ? "column" : "row" }}>
+      {!mobile && (
+        <aside style={{
+          width: 240,
+          background: "#0B1930",
+          color: "#fff",
+          display: "flex",
+          flexDirection: "column",
+          flexShrink: 0,
+          borderRight: "1px solid rgba(255,255,255,0.08)"
+        }}>
+          {/* Sidebar Header */}
+          <div style={{
+            height: 58,
+            padding: "0 20px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            borderBottom: "1px solid rgba(255,255,255,0.08)"
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 28, height: 28, borderRadius: 7, background: "rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Icon n="clock" size={15} color="#fff" />
+              </div>
+              <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: "-0.02em" }}>Company Portal</span>
+            </div>
+            <button style={{ border: "none", background: "none", cursor: "pointer", padding: 0, display: "flex", opacity: 0.5 }}>
+              <Icon n="left" size={14} color="#fff" />
+            </button>
+          </div>
+
+          {/* Sidebar Navigation Items */}
+          <div style={{ flex: 1, padding: "16px 12px", display: "flex", flexDirection: "column", gap: 4, overflowY: "auto" }}>
+            {[
+              ["timesheet", "clock", "Weekly Timesheet"],
+              ["allocations", "folder", "Allocations"],
+              ["profile", "user", "Profile"]
+            ].map(([id, ic, lb]) => {
+              const active = tab === id;
+              return (
+                <button
+                  key={id}
+                  onClick={() => {
+                    if (id === "profile") {
+                      setProfileOpen(true);
+                    } else {
+                      setTab(id);
+                    }
+                  }}
+                  style={{
+                    border: "none",
+                    background: active ? "rgba(255,255,255,0.08)" : "transparent",
+                    cursor: "pointer",
+                    padding: "10px 12px",
+                    fontSize: 13,
+                    fontWeight: active ? 600 : 500,
+                    color: active ? "#ffffff" : "rgba(255,255,255,0.65)",
+                    borderRadius: 6,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    textAlign: "left",
+                    outline: "none",
+                    transition: "background 0.15s, color 0.15s"
+                  }}
+                  className="sidebar-item"
+                >
+                  <Icon n={ic} size={15} color={active ? "#ffffff" : "rgba(255,255,255,0.65)"} />
+                  <span>{lb}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Sidebar Footer Profile */}
+          <div style={{
+            padding: "16px 20px",
+            borderTop: "1px solid rgba(255,255,255,0.08)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 8
+          }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, overflow: "hidden", flex: 1 }}>
+              <span style={{ fontSize: 13, fontWeight: 500, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={USER.email}>
+                {USER.email}
+              </span>
+              <span style={{
+                alignSelf: "flex-start",
+                fontSize: 10,
+                fontWeight: 700,
+                color: "#1E429F",
+                background: "#E1EFFE",
+                padding: "2px 6px",
+                borderRadius: 4,
+                textTransform: "uppercase"
+              }}>
+                RESOURCE
+              </span>
+            </div>
+            <button
+              onClick={onLogout}
+              style={{
+                border: "none",
+                background: "none",
+                cursor: "pointer",
+                padding: 4,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                borderRadius: 4,
+                color: "rgba(255,255,255,0.65)",
+                transition: "color 0.15s"
+              }}
+              title="Log out"
+            >
+              <Icon n="logout" size={16} />
+            </button>
+          </div>
+        </aside>
+      )}
+
+      {/* Main Content Area */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+        {/* Main Area Header */}
+        <header 
+          style={{ 
+            background: C.surface, 
+            borderBottom: `1px solid ${C.line}`, 
+            padding: mobile ? "0 16px" : "0 28px", 
+            height: 58, 
+            display: "flex", 
+            alignItems: "center", 
+            justifyContent: "space-between", 
+            position: "sticky", 
+            top: 0, 
+            zIndex: 30 
+          }}
+        >
+          {mobile ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 28, height: 28, borderRadius: 7, background: C.ink, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Icon n="clock" size={15} color="#fff" />
+              </div>
+              <span style={{ fontSize: 16, fontWeight: 700, color: C.ink, letterSpacing: "-0.02em" }}>Pulse</span>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <h1 style={{ fontSize: 18, fontWeight: 700, color: C.ink, margin: 0 }}>
+                {tab === "timesheet" ? "Weekly Timesheet" : "Allocations"}
+              </h1>
+            </div>
+          )}
+
+          {/* Week navigation / actions */}
+          <div style={{ display: "flex", alignItems: "center", gap: mobile ? 10 : 18 }}>
+            {tab === "timesheet" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 2, color: C.ink2 }}>
+                <button className="ghost" onClick={() => setWeekIdx(w => w - 1)} style={navBtn}>
+                  <Icon n="left" size={16} color={C.ink2} />
+                </button>
+                <span className="num" style={{ minWidth: mobile ? 116 : 140, textAlign: "center", fontSize: 13, color: C.ink }}>
+                  {activeTimesheet.weekLabel}
+                </span>
+                <button className="ghost" onClick={() => setWeekIdx(w => w + 1)} style={navBtn}>
+                  <Icon n="right" size={16} color={C.ink2} />
+                </button>
+              </div>
+            )}
+            
+            {tab === "timesheet" && !mobile && <StatusPill s={activeTimesheet.status} />}
+            
+            <button 
+              onClick={() => setProfileOpen(true)} 
+              style={{ 
+                display: "flex", 
+                alignItems: "center", 
+                gap: 8, 
+                border: `1px solid ${C.line}`, 
+                borderRadius: 99, 
+                padding: mobile ? "3px" : "3px 3px 3px 11px", 
+                background: C.surface, 
+                cursor: "pointer" 
+              }}
+            >
+              {!mobile && <span style={{ fontSize: "12.5px", fontWeight: 500, color: C.ink }}>{USER.name.split(" ")[0]}</span>}
+              <span style={{ width: 28, height: 28, borderRadius: 99, background: C.ink, color: "#fff", fontSize: 11, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {USER.name.split(" ").map(n => n[0]).join("")}
+              </span>
+            </button>
+          </div>
+        </header>
+
+        {/* Main Content Body */}
+        <main style={{ flex: 1, width: "100%", maxWidth: 1120, margin: "0 auto", padding: mobile ? "18px 16px 90px" : "26px 28px" }}>
+          {mobile ? (
+            tab === "allocations" ? allocationsEl : tab === "profile" ? null : timesheetEl
+          ) : (
+            tab === "allocations" ? allocationsEl : timesheetEl
+          )}
+        </main>
       </div>
-    </header>
 
-    {/* body */}
-    <main style={{flex:1,width:"100%",maxWidth:1120,margin:"0 auto",padding:mobile?"18px 16px 90px":"26px 28px"}}>
-      {mobile
-        ? (tab==="allocations"?allocationsEl: tab==="profile"? <div/> : timesheetEl)
-        : <div style={{display:"grid",gridTemplateColumns:"320px 1fr",gap:24,alignItems:"start"}}>{allocationsEl}{timesheetEl}</div>}
-    </main>
+      {/* mobile bottom nav */}
+      {mobile && (
+        <nav style={{ position: "fixed", bottom: 0, left: 0, right: 0, height: 64, background: C.surface, borderTop: `1px solid ${C.line}`, display: "flex", zIndex: 40 }}>
+          {[["allocations", "grid", "Allocations"], ["timesheet", "clock", "Timesheet"], ["profile", "user", "Profile"]].map(([id, ic, lb]) => {
+            const active = id === "profile" ? profileOpen : (tab === id && !profileOpen);
+            return (
+              <button key={id} onClick={() => { id === "profile" ? setProfileOpen(true) : (setProfileOpen(false), setTab(id)); }}
+                style={{ flex: 1, border: "none", background: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyCenter: "center", justifyContent: "center", gap: 4, color: active ? C.ink : C.ink3 }}>
+                <Icon n={ic} size={19} color={active ? C.ink : C.ink3} /><span style={{ fontSize: 10.5, fontWeight: active ? 600 : 500 }}>{lb}</span>
+              </button>
+            );
+          })}
+        </nav>
+      )}
 
-    {/* mobile bottom nav */}
-    {mobile&&<nav style={{position:"fixed",bottom:0,left:0,right:0,height:64,background:C.surface,borderTop:`1px solid ${C.line}`,display:"flex",zIndex:40}}>
-      {[["allocations","grid","Allocations"],["timesheet","clock","Timesheet"],["profile","user","Profile"]].map(([id,ic,lb])=>{
-        const active=id==="profile"?profileOpen:(tab===id&&!profileOpen);
-        return <button key={id} onClick={()=>{id==="profile"?setProfileOpen(true):(setProfileOpen(false),setTab(id));}}
-          style={{flex:1,border:"none",background:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,color:active?C.ink:C.ink3}}>
-          <Icon n={ic} size={19} color={active?C.ink:C.ink3}/><span style={{fontSize:10.5,fontWeight:active?600:500}}>{lb}</span></button>;})}
-    </nav>}
+      {/* demo state control */}
+      {!mobile && (
+        <div style={{ position: "fixed", bottom: 16, left: "50%", transform: "translateX(-50%)", display: "flex", alignItems: "center", gap: 2, border: `1px solid ${C.line}`, background: C.surface, borderRadius: 99, padding: 3, boxShadow: "0 1px 2px rgba(0,0,0,.04)", zIndex: 35 }}>
+          <span style={{ fontSize: 11, color: C.ink3, padding: "0 8px 0 10px" }}>Preview status</span>
+          {["Draft", "Submitted", "Approved", "Rejected"].map(s => (
+            <button key={s} onClick={() => { updateActiveStatus(s); if (s === "Rejected") updateActiveComment("Tuesday on IPO looks high — can you split build vs review hours?"); }}
+              style={{ border: "none", borderRadius: 99, padding: "5px 11px", fontSize: 12, cursor: "pointer", fontWeight: activeTimesheet.status === s ? 600 : 500, background: activeTimesheet.status === s ? C.ink : "transparent", color: activeTimesheet.status === s ? "#fff" : C.ink2 }}>
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
 
-    {/* demo state control (prototype affordance — no PM in MVP) */}
-    {!mobile&&<div style={{position:"fixed",bottom:16,left:"50%",transform:"translateX(-50%)",display:"flex",alignItems:"center",gap:2,border:`1px solid ${C.line}`,background:C.surface,borderRadius:99,padding:3,boxShadow:"0 1px 2px rgba(0,0,0,.04)",zIndex:35}}>
-      <span style={{fontSize:11,color:C.ink3,padding:"0 8px 0 10px"}}>Preview status</span>
-      {["Draft","Submitted","Approved","Rejected"].map(s=><button key={s} onClick={()=>{updateActiveStatus(s);if(s==="Rejected")updateActiveComment("Tuesday on IPO looks high — can you split build vs review hours?");}}
-        style={{border:"none",borderRadius:99,padding:"5px 11px",fontSize:12,cursor:"pointer",fontWeight:activeTimesheet.status===s?600:500,background:activeTimesheet.status===s?C.ink:"transparent",color:activeTimesheet.status===s?"#fff":C.ink2}}>{s}</button>)}</div>}
-
-    {profileOpen&&<Profile skills={skills} setSkills={setSkills} onClose={()=>setProfileOpen(false)} onLogout={onLogout} show={show}/>}
-    {toast}
-  </div>;
+      {profileOpen && <Profile skills={skills} setSkills={setSkills} onClose={() => setProfileOpen(false)} onLogout={onLogout} show={show} />}
+      {toast}
+    </div>;
 }
 const navBtn={width:28,height:28,border:"none",background:"none",borderRadius:6,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"};
 

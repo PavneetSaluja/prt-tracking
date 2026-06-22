@@ -7,7 +7,7 @@
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<style>html,body{margin:0;padding:0;background:#F6F5F1}#root{min-height:100vh}</style>
+<style>html,body{margin:0;padding:0;background:#F6F5F1}#root{min-height:100vh} .sidebar-item:hover{background:rgba(255,255,255,0.08)!important;color:#ffffff!important;}</style>
 </head>
 <body>
 <div id="root"></div>
@@ -1243,82 +1243,182 @@ function Dashboard({ currentUser, onLogout, toast, show }) {
   const initials = currentUser.name.split(" ").map(n => n[0]).join("");
 
   return (
-    <div className="pulse-root" style={{ minHeight: "100vh", background: C.paper }}>
-      <header style={{ background: C.surface, borderBottom: `1px solid ${C.line}`, padding: "0 28px", height: 58, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, position: "sticky", top: 0, zIndex: 30 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 7, background: C.ink, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Icon n="clock" size={15} color="#fff" />
+    <div className="pulse-root" style={{ minHeight: "100vh", background: "#F8FAFC", display: "flex" }}>
+      {/* Left Sidebar */}
+      <aside style={{
+        width: 240,
+        background: "#0B1930",
+        color: "#fff",
+        display: "flex",
+        flexDirection: "column",
+        flexShrink: 0,
+        borderRight: "1px solid rgba(255,255,255,0.08)"
+      }}>
+        {/* Sidebar Header */}
+        <div style={{
+          height: 58,
+          padding: "0 20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          borderBottom: "1px solid rgba(255,255,255,0.08)"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 7, background: "rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Icon n="shield" size={15} color="#fff" />
+            </div>
+            <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: "-0.02em" }}>Company Portal</span>
           </div>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-            <span style={{ fontSize: 16, fontWeight: 700, color: C.ink, letterSpacing: "-0.02em" }}>Pulse</span>
-            <span style={{ fontSize: 12.5, color: C.ink3 }}>{currentUser.role} Portal</span>
-          </div>
-        </div>
-
-        <div style={{ flex: 1, maxWidth: 400, display: "flex", alignItems: "center", gap: 8, border: `1px solid ${C.line}`, borderRadius: 7, padding: "8px 12px", background: C.surface }}>
-          <Icon n="search" size={15} color={C.ink3} />
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search..." style={{ border: "none", outline: "none", fontSize: 13, color: C.ink, background: "transparent", width: "100%" }} />
-          {q && (
-            <button onClick={() => setQ("")} style={{ border: "none", background: "none", cursor: "pointer", padding: 0, display: "flex" }}>
-              <Icon n="x" size={14} color={C.ink3} />
-            </button>
-          )}
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <span style={{ fontSize: 12, color: C.ink3 }}>FY 2025–26 · Q2</span>
-          <div style={{ position: "relative" }}>
-            <button className="ghost" onClick={() => setNotifOpen(o => !o)} style={{ ...navBtn, position: "relative" }}>
-              <Icon n="bell" size={17} color={C.ink2} />
-              <span style={{ position: "absolute", top: 3, right: 3, width: 7, height: 7, borderRadius: 99, background: C.accent, border: `1.5px solid ${C.surface}` }} />
-            </button>
-            {notifOpen && (
-              <>
-                <div onClick={() => setNotifOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
-                <div style={{ position: "absolute", right: 0, top: 38, width: 320, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 10, boxShadow: "0 8px 30px rgba(0,0,0,.12)", zIndex: 50, overflow: "hidden" }}>
-                  <div style={{ padding: "11px 14px", borderBottom: `1px solid ${C.line}`, fontSize: 12.5, fontWeight: 600, color: C.ink }}>Notifications</div>
-                  {NOTIFS.map((n, i) => (
-                    <div key={i} style={{ padding: "11px 14px", borderBottom: i < NOTIFS.length - 1 ? `1px solid ${C.line}` : "none", display: "flex", gap: 10 }}>
-                      <span style={{ marginTop: 5 }}><Dot c={n.tone} /></span>
-                      <div>
-                        <div style={{ fontSize: 12.5, color: C.ink, lineHeight: 1.4 }}>{n.t}</div>
-                        <div style={{ fontSize: 11, color: C.ink3, marginTop: 2 }}>{n.time}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-          <button onClick={() => setProfileOpen(true)} style={{ width: 30, height: 30, borderRadius: 99, background: C.ink, color: "#fff", fontSize: 11, fontWeight: 600, border: "none", cursor: "pointer" }}>
-            {initials}
+          <button style={{ border: "none", background: "none", cursor: "pointer", padding: 0, display: "flex", opacity: 0.5 }}>
+            <Icon n="left" size={14} color="#fff" />
           </button>
         </div>
-      </header>
 
-      <div style={{ background: C.surface, borderBottom: `1px solid ${C.line}`, padding: "0 28px", display: "flex", gap: 4, position: "sticky", top: 58, zIndex: 25, overflowX: "auto" }}>
-        {visibleTabs.map(([label, icon]) => {
-          const a = tab === label;
-          return (
-            <button key={label} className="tab" onClick={() => setTab(label)} style={{ border: "none", background: "none", cursor: "pointer", padding: "13px 12px", fontSize: 13, fontWeight: a ? 600 : 500, color: a ? C.ink : C.ink3, borderBottom: `2px solid ${a ? C.ink : "transparent"}`, marginBottom: -1, display: "flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>
-              <Icon n={icon} size={15} color={a ? C.ink : C.ink3} />
-              {label}
+        {/* Sidebar Navigation Items */}
+        <div style={{ flex: 1, padding: "16px 12px", display: "flex", flexDirection: "column", gap: 4, overflowY: "auto" }}>
+          {visibleTabs.map(([label, icon]) => {
+            const active = tab === label;
+            return (
+              <button
+                key={label}
+                onClick={() => {
+                  setTab(label);
+                  setQ("");
+                }}
+                style={{
+                  border: "none",
+                  background: active ? "rgba(255,255,255,0.08)" : "transparent",
+                  cursor: "pointer",
+                  padding: "10px 12px",
+                  fontSize: 13,
+                  fontWeight: active ? 600 : 500,
+                  color: active ? "#ffffff" : "rgba(255,255,255,0.65)",
+                  borderRadius: 6,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  textAlign: "left",
+                  outline: "none",
+                  transition: "background 0.15s, color 0.15s"
+                }}
+                className="sidebar-item"
+              >
+                <Icon n={icon} size={15} color={active ? "#ffffff" : "rgba(255,255,255,0.65)"} />
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Sidebar Footer Profile */}
+        <div style={{
+          padding: "16px 20px",
+          borderTop: "1px solid rgba(255,255,255,0.08)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8
+        }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, overflow: "hidden", flex: 1 }}>
+            <span style={{ fontSize: 13, fontWeight: 500, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={currentUser.email}>
+              {currentUser.email}
+            </span>
+            <span style={{
+              alignSelf: "flex-start",
+              fontSize: 10,
+              fontWeight: 700,
+              color: "#1E429F",
+              background: "#E1EFFE",
+              padding: "2px 6px",
+              borderRadius: 4,
+              textTransform: "uppercase"
+            }}>
+              {currentUser.role || "ADMIN"}
+            </span>
+          </div>
+          <button
+            onClick={onLogout}
+            style={{
+              border: "none",
+              background: "none",
+              cursor: "pointer",
+              padding: 4,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 4,
+              color: "rgba(255,255,255,0.65)",
+              transition: "color 0.15s"
+            }}
+            title="Log out"
+          >
+            <Icon n="logout" size={16} />
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+        {/* Main Area Header */}
+        <header style={{ background: C.surface, borderBottom: `1px solid ${C.line}`, padding: "0 28px", height: 58, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, position: "sticky", top: 0, zIndex: 30 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <h1 style={{ fontSize: 18, fontWeight: 700, color: C.ink, margin: 0 }}>{tab}</h1>
+          </div>
+
+          <div style={{ flex: 1, maxWidth: 400, display: "flex", alignItems: "center", gap: 8, border: `1px solid ${C.line}`, borderRadius: 7, padding: "8px 12px", background: C.surface }}>
+            <Icon n="search" size={15} color={C.ink3} />
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search..." style={{ border: "none", outline: "none", fontSize: 13, color: C.ink, background: "transparent", width: "100%" }} />
+            {q && (
+              <button onClick={() => setQ("")} style={{ border: "none", background: "none", cursor: "pointer", padding: 0, display: "flex" }}>
+                <Icon n="x" size={14} color={C.ink3} />
+              </button>
+            )}
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <span style={{ fontSize: 12, color: C.ink3 }}>FY 2025–26 · Q2</span>
+            <div style={{ position: "relative" }}>
+              <button className="ghost" onClick={() => setNotifOpen(o => !o)} style={{ ...navBtn, position: "relative" }}>
+                <Icon n="bell" size={17} color={C.ink2} />
+                <span style={{ position: "absolute", top: 3, right: 3, width: 7, height: 7, borderRadius: 99, background: C.accent, border: `1.5px solid ${C.surface}` }} />
+              </button>
+              {notifOpen && (
+                <>
+                  <div onClick={() => setNotifOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
+                  <div style={{ position: "absolute", right: 0, top: 38, width: 320, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 10, boxShadow: "0 8px 30px rgba(0,0,0,.12)", zIndex: 50, overflow: "hidden" }}>
+                    <div style={{ padding: "11px 14px", borderBottom: `1px solid ${C.line}`, fontSize: 12.5, fontWeight: 600, color: C.ink }}>Notifications</div>
+                    {NOTIFS.map((n, i) => (
+                      <div key={i} style={{ padding: "11px 14px", borderBottom: i < NOTIFS.length - 1 ? `1px solid ${C.line}` : "none", display: "flex", gap: 10 }}>
+                        <span style={{ marginTop: 5 }}><Dot c={n.tone} /></span>
+                        <div>
+                          <div style={{ fontSize: 12.5, color: C.ink, lineHeight: 1.4 }}>{n.t}</div>
+                          <div style={{ fontSize: 11, color: C.ink3, marginTop: 2 }}>{n.time}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            <button onClick={() => setProfileOpen(true)} style={{ width: 30, height: 30, borderRadius: 99, background: C.ink, color: "#fff", fontSize: 11, fontWeight: 600, border: "none", cursor: "pointer" }}>
+              {initials}
             </button>
-          );
-        })}
-      </div>
+          </div>
+        </header>
 
-      <main style={{ maxWidth: 1180, margin: "0 auto", padding: "24px 28px" }}>
-        {tab === "Business" && <Business people={people} />}
-        {tab === "Finance" && <Finance ledger={ledger} setLedger={setLedger} show={show} q={q} />}
-        {tab === "Projects" && <Projects ledger={ledger} people={people} q={q} />}
-        {tab === "PMs" && <PMs people={people} q={q} />}
-        {tab === "Clients" && <Clients ledger={ledger} show={show} q={q} />}
-        {tab === "People" && <People people={people} setPeople={setPeople} show={show} q={q} />}
-        {tab === "Sales" && <Sales q={q} />}
-        {tab === "Vendor Resources" && <Outsourced q={q} />}
-        {tab === "Access" && <Access show={show} />}
-      </main>
+        {/* Main Content Body */}
+        <main style={{ maxWidth: 1180, margin: "0 auto", padding: "24px 28px", width: "100%" }}>
+          {tab === "Business" && <Business people={people} />}
+          {tab === "Finance" && <Finance ledger={ledger} setLedger={setLedger} show={show} q={q} />}
+          {tab === "Projects" && <Projects ledger={ledger} people={people} q={q} />}
+          {tab === "PMs" && <PMs people={people} q={q} />}
+          {tab === "Clients" && <Clients ledger={ledger} show={show} q={q} />}
+          {tab === "People" && <People people={people} setPeople={setPeople} show={show} q={q} />}
+          {tab === "Sales" && <Sales q={q} />}
+          {tab === "Vendor Resources" && <Outsourced q={q} />}
+          {tab === "Access" && <Access show={show} />}
+        </main>
+      </div>
 
       {profileOpen && <Profile currentUser={currentUser} onClose={() => setProfileOpen(false)} onLogout={onLogout} />}
       {toast}
