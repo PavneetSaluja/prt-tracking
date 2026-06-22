@@ -50,7 +50,7 @@ const ICONS = {
   x:'<path d="M18 6 6 18"/><path d="M6 6l12 12"/>', plus:'<path d="M5 12h14"/><path d="M12 5v14"/>',
   check:'<path d="M20 6 9 17l-5-5"/>', arrow:'<path d="M5 12h14"/><path d="M12 5l7 7-7 7"/>',
   logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>',
-  left:'<path d="m15 18-6-6 6-6"/>', right:'<path d="m9 18 6-6-6-6"/>',
+  left:'<path d="m15 18-6-6 6-6"/>', right:'<path d="m9 18 6-6-6-6"/>', down:'<path d="m6 9 6 6 6-6"/>',
   alert:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
   lock:'<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
   inbox:'<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
@@ -198,85 +198,293 @@ function EntryEditor({projName,day,entry,onChange,onDone,onClose,lastDay}){
   </div>;
 }
 
-function Timesheet({projects,entries,setEntries,status,setStatus,comment,show,mobile}){
-  const locked=status==="Submitted"||status==="Approved";
+function HistoricalTimesheetsList({ list, projects, onGoToWeek, type }) {
+  const [openId, setOpenId] = useState(null);
+
+  const getTimesheetTotal = (ts) => {
+    return Object.keys(ts.entries).reduce((sum, pid) => {
+      return sum + ts.entries[pid].reduce((a, e) => a + (e ? (e.h || 0) : 0), 0);
+    }, 0);
+  };
+
+  const getProjName = (projId) => projects.find(p => p.id === projId)?.name || projId;
+
+  if (list.length === 0) {
+    return <Empty msg={`No ${type.toLowerCase()} timesheets found.`} />;
+  }
+
+  return (
+    <div style={{ border: `1px solid ${C.line}`, borderRadius: 8, background: C.surface, overflow: "hidden" }}>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={thBase}>Week</th>
+              <th style={thBase}>Projects & Hours</th>
+              <th className="num" style={{ ...thBase, textAlign: "right" }}>Logged</th>
+              <th style={thBase}>Status</th>
+              <th style={{ ...thBase, textAlign: "right" }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.map(ts => {
+              const total = getTimesheetTotal(ts);
+              const isExpanded = openId === ts.id;
+              
+              // Get active daily entries
+              const activeEntries = [];
+              Object.keys(ts.entries).forEach(pid => {
+                ts.entries[pid].forEach((dayLog, dayIdx) => {
+                  if (dayLog && dayLog.h > 0) {
+                    activeEntries.push({
+                      projectName: getProjName(pid),
+                      day: DAY_FULL[dayIdx],
+                      hours: dayLog.h,
+                      desc: dayLog.d
+                    });
+                  }
+                });
+              });
+
+              return (
+                <React.Fragment key={ts.id}>
+                  <tr className="row">
+                    <td style={{ ...tdBase, color: "#18181B", fontWeight: 500 }}>
+                      {ts.weekLabel}
+                    </td>
+                    <td style={tdBase}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        {Object.keys(ts.entries).map(pid => {
+                          const hrs = ts.entries[pid].reduce((a, b) => a + (b ? b.h : 0), 0);
+                          if (hrs === 0) return null;
+                          return (
+                            <span key={pid} style={{ fontSize: 12.5, color: "#18181B" }}>
+                              {getProjName(pid)} <span className="num" style={{ color: "#9A9AA1" }}>· {hrs}h</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </td>
+                    <td className="num" style={{ ...tdBase, textAlign: "right", color: "#18181B", fontWeight: 500 }}>
+                      {total}h
+                    </td>
+                    <td style={tdBase}>
+                      <StatusPill s={ts.status} />
+                    </td>
+                    <td style={{ ...tdBase, textAlign: "right", whiteSpace: "nowrap" }}>
+                      <button 
+                        className="lnk" 
+                        onClick={() => setOpenId(isExpanded ? null : ts.id)} 
+                        style={{ border: "none", background: "none", color: "#38618C", fontSize: 12.5, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 3, marginRight: 10 }}
+                      >
+                        Details <Icon n={isExpanded ? "down" : "right"} size={13} color="#38618C" />
+                      </button>
+                      <button
+                        title="Go to Week"
+                        className="ghost"
+                        onClick={() => onGoToWeek(ts.weekIdx)}
+                        style={{ border: "1px solid #E7E6E0", background: "#FFFFFF", borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontSize: 11.5, fontWeight: 500 }}
+                      >
+                        Go to Week
+                      </button>
+                    </td>
+                  </tr>
+
+                  {isExpanded && (
+                    <tr className="fade-in">
+                      <td colSpan={5} style={{ padding: "0 12px 14px", borderBottom: "1px solid #E7E6E0", background: "#FBFBF9" }}>
+                        <div style={{ border: "1px solid #E7E6E0", borderRadius: 6, padding: "12px 14px", background: "#FFFFFF", marginTop: 6 }}>
+                          <div style={{ fontSize: 11, color: "#9A9AA1", textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 10 }}>
+                            Daily Work Log Descriptions
+                          </div>
+
+                          {activeEntries.length === 0 ? (
+                            <Empty msg="No hours logged for this week." />
+                          ) : (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: ts.comment ? 12 : 0 }}>
+                              {activeEntries.map((e, idx) => (
+                                <div key={idx} style={{ padding: "8px 10px", borderBottom: idx < activeEntries.length - 1 ? "1px solid #E7E6E0" : "none", display: "flex", flexDirection: "column", gap: 4 }}>
+                                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                                    <span style={{ fontWeight: 600, color: "#18181B" }}>{e.projectName} · {e.day}</span>
+                                    <span className="num" style={{ fontWeight: 600, color: "#38618C" }}>{e.hours}h</span>
+                                  </div>
+                                  <div style={{ fontSize: 12.5, color: "#5C5C63", lineHeight: 1.4, fontStyle: "italic" }}>
+                                    "{e.desc || "No description provided."}"
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {ts.comment && (
+                            <div style={{ padding: "8px 10px", background: ts.status === "Rejected" ? "#FBF1F0" : "#EEF4EF", border: `1px solid ${ts.status === "Rejected" ? "#A23B3B" : "#3F7A52"}`, borderRadius: 4, fontSize: 12.5, color: ts.status === "Rejected" ? "#A23B3B" : "#3F7A52" }}>
+                              <strong>PM Comment:</strong> "{ts.comment}"
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function Timesheet({projects,timesheet,onSaveDraft,onSubmit,show,mobile,timesheets,setWeekIdx}){
+  const locked=timesheet.status==="Submitted"||timesheet.status==="Approved";
+  const [activeTab,setActiveTab]=useState("Weekly Timesheet");
   const [sel,setSel]=useState(null);          // {proj, day}
   const [saved,setSaved]=useState(true);
-  useEffect(()=>{ if(locked)return; setSaved(false); const t=setTimeout(()=>setSaved(true),900); return ()=>clearTimeout(t); },[entries,locked]);
-  const dayTotals=DAYS.map((_,d)=>projects.reduce((s,p)=>s+(entries[p.id][d].h||0),0));
+  useEffect(()=>{ if(locked)return; setSaved(false); const t=setTimeout(()=>setSaved(true),900); return ()=>clearTimeout(t); },[timesheet.entries,locked]);
+  const dayTotals=DAYS.map((_,d)=>projects.reduce((s,p)=>s+(timesheet.entries[p.id][d].h||0),0));
   const weekTotal=dayTotals.reduce((a,b)=>a+b,0);
   const remaining=Math.max(0,USER.capacity-weekTotal);
-  const anyHours=projects.some(p=>entries[p.id].some(e=>e.h>0));
-  const incomplete=projects.flatMap(p=>entries[p.id].map((e,d)=>needsDesc(e)?{proj:p.id,day:d}:null)).filter(Boolean);
+  const anyHours=projects.some(p=>timesheet.entries[p.id].some(e=>e.h>0));
+  const incomplete=projects.flatMap(p=>timesheet.entries[p.id].map((e,d)=>needsDesc(e)?{proj:p.id,day:d}:null)).filter(Boolean);
   const overDay=dayTotals.some(t=>t>LIMIT);
-  const setEntry=(pid,day,val)=>{ if(locked)return; setEntries(prev=>({...prev,[pid]:prev[pid].map((e,i)=>i===day?val:e)})); };
+  const setEntry=(pid,day,val)=>{ if(locked)return; 
+    const updated = { ...timesheet.entries };
+    updated[pid] = updated[pid].map((e,i)=>i===day?val:e);
+    onSaveDraft(updated); 
+  };
   const open=(pid,day)=>{ if(!locked) setSel({proj:pid,day}); };
-  const doneNext=(pid,day)=>{ show("Saved"); if(day<6) setSel({proj:pid,day:day+1}); else setSel(null); };
+  const doneNext=(pid,day)=>{ show("Saved draft"); if(day<6) setSel({proj:pid,day:day+1}); else setSel(null); };
   const submit=()=>{ if(weekTotal===0){show("Log some hours first","err");return;}
     if(incomplete.length>0){ setSel(incomplete[0]); show("Add a description to every logged day first","err"); return; }
-    setStatus("Submitted"); show("Week submitted"); setSel(null); };
+    onSubmit(); show("Week submitted"); setSel(null); };
 
-  const editorFor=(pid,day)=> <EntryEditor projName={projects.find(p=>p.id===pid).name} day={day} entry={entries[pid][day]}
+  const editorFor=(pid,day)=> <EntryEditor projName={projects.find(p=>p.id===pid).name} day={day} entry={timesheet.entries[pid][day]}
     onChange={v=>setEntry(pid,day,v)} onDone={()=>doneNext(pid,day)} onClose={()=>setSel(null)} lastDay={day===6}/>;
 
+  const approvedTimesheets = timesheets.filter(ts => ts.status === "Approved");
+  const rejectedTimesheets = timesheets.filter(ts => ts.status === "Rejected");
+
   return <div style={{display:"flex",flexDirection:"column",gap:14}}>
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",gap:12,flexWrap:"wrap"}}>
-      <div><div style={{fontSize:12.5,fontWeight:600,color:C.ink,textTransform:"uppercase",letterSpacing:".05em"}}>Weekly timesheet</div>
-        <div style={{fontSize:12,color:C.ink3,marginTop:3}}>Every logged hour needs a short work description.</div></div>
-      <div style={{textAlign:"right"}}>
-        <div className="num" style={{fontSize:13,color:C.ink2}}><span style={{color:C.ink,fontWeight:600,fontSize:16}}>{weekTotal}h</span> logged · {remaining}h left</div>
-        {!locked&&<div style={{fontSize:11.5,color:saved?C.ok:C.ink3,marginTop:3,display:"flex",alignItems:"center",gap:5,justifyContent:"flex-end"}}>{saved?<><Icon n="check" size={12} color={C.ok}/> Draft saved</>:"Saving…"}</div>}</div></div>
-
-    {status==="Submitted"&&<Notice tone="accent" icon="lock" title="Pending PM approval" body="Your week is submitted and locked. You'll be notified once it's reviewed."/>}
-    {status==="Approved"&&<Notice tone="ok" icon="check" title="Approved" body="Sent to billing. Nothing more to do this week."/>}
-    {status==="Rejected"&&<Notice tone="err" icon="alert" title="Changes requested by your PM" body={comment||"Please review and resubmit."}/>}
-
-    {!anyHours&&!locked
-      ? <Empty msg="Start logging your hours to track your work."/>
-      : mobile
-        /* mobile: project cards, day chips, inline editor */
-        ? <div style={{display:"flex",flexDirection:"column",gap:12}}>{projects.map(p=>{const rt=entries[p.id].reduce((s,e)=>s+e.h,0);
-            return <div key={p.id} style={{border:`1px solid ${C.line}`,borderRadius:8,background:C.surface,overflow:"hidden"}}>
-              <div style={{padding:"11px 14px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <span style={{fontSize:13,fontWeight:600,color:C.ink}}>{p.name}</span><span className="num" style={{fontSize:12.5,color:C.ink2}}>{rt}h</span></div>
-              <div style={{display:"flex",gap:6,padding:"12px 14px",flexWrap:"wrap"}}>{DAYS.map((d,di)=>{const e=entries[p.id][di];const se=sel&&sel.proj===p.id&&sel.day===di;
-                return <button key={d} onClick={()=>open(p.id,di)} disabled={locked} style={{flex:"1 1 0",minWidth:40,border:`1px solid ${se?C.accent:needsDesc(e)?C.warn:C.line}`,borderRadius:6,padding:"7px 4px",background:se?C.accentSoft:C.surface,cursor:locked?"default":"pointer"}}>
-                  <div style={{fontSize:10,color:C.ink3}}>{d}</div><div className="num" style={{fontSize:13,color:e.h?(needsDesc(e)?C.warn:C.ink):C.ink3,marginTop:1}}>{e.h||"·"}</div></button>;})}</div>
-              {sel&&sel.proj===p.id&&<div style={{padding:"0 14px 14px"}}>{editorFor(p.id,sel.day)}</div>}
-            </div>;})}</div>
-        /* desktop: grid with inline editor row beneath the selected project */
-        : <section style={{border:`1px solid ${C.line}`,borderRadius:8,background:C.surface,overflow:"hidden"}}>
-            <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:640}}>
-              <thead><tr><th style={{...thBase,width:"30%"}}>Project</th>
-                {DAYS.map((d,i)=><th key={d} style={{...thBase,textAlign:"center",color:i===TODAY?C.accent:C.ink3,opacity:i>4?.8:1}}>{d}</th>)}
-                <th style={{...thBase,textAlign:"center",color:C.ink}}>Total</th></tr></thead>
-              <tbody>
-                {projects.map(p=>{const rt=entries[p.id].reduce((s,e)=>s+e.h,0);const main=
-                  <tr key={p.id} className="row"><td style={tdBase}><span style={{fontSize:13,fontWeight:500,color:C.ink}}>{p.name}</span></td>
-                    {DAYS.map((_,d)=>{const e=entries[p.id][d];const need=needsDesc(e);const se=sel&&sel.proj===p.id&&sel.day===d;
-                      return <td key={d} onClick={()=>open(p.id,d)} style={{padding:0,borderBottom:`1px solid ${C.line}`,cursor:locked?"default":"pointer",background:se?C.accentSoft:d===TODAY?"rgba(56,97,140,.035)":"transparent",boxShadow:need?`inset 0 -2px 0 ${C.warn}`:undefined}}>
-                        <input className="hcell num" value={e.h||""} placeholder="·" disabled={locked} onFocus={()=>open(p.id,d)}
-                          onChange={ev=>{let n=parseFloat(ev.target.value);n=isNaN(n)||n<0?0:Math.min(24,n);setEntry(p.id,d,{...e,h:n});open(p.id,d);}}
-                          style={{width:"100%",border:"none",background:"transparent",textAlign:"center",padding:"13px 0",fontSize:13.5,color:e.h?(need?C.warn:C.ink):C.ink3,cursor:locked?"not-allowed":"pointer"}}/></td>;})}
-                    <td className="num" style={{...tdBase,textAlign:"center",fontWeight:600,color:C.ink}}>{rt||"—"}</td></tr>;
-                  const out=[main];
-                  if(sel&&sel.proj===p.id) out.push(<tr key={p.id+"-ed"}><td colSpan={9} style={{padding:"10px 12px",borderBottom:`1px solid ${C.line}`,background:"#FBFBF9"}}>{editorFor(p.id,sel.day)}</td></tr>);
-                  return out;})}
-                <tr style={{borderTop:`1px solid ${C.lineStrong}`}}><td style={{...tdBase,fontSize:12,fontWeight:600,color:C.ink2}}>Daily total</td>
-                  {dayTotals.map((t,i)=><td key={i} className="num" style={{...tdBase,textAlign:"center",fontWeight:600,color:t>LIMIT?C.warn:t?C.ink:C.ink3}}>{t||"—"}</td>)}
-                  <td className="num" style={{...tdBase,textAlign:"center",fontWeight:700,color:C.ink}}>{weekTotal}</td></tr>
-              </tbody></table></div>
-            {overDay&&!locked&&<div style={{padding:"9px 16px",borderTop:`1px solid ${C.line}`,fontSize:12,color:C.warn,display:"flex",alignItems:"center",gap:8,background:C.warnSoft}}><Icon n="alert" size={14} color={C.warn}/> A day exceeds {LIMIT}h.</div>}
-          </section>}
-
-    {incomplete.length>0&&!locked&&<div style={{fontSize:12,color:C.warn,display:"flex",alignItems:"center",gap:8}}><Dot c={C.warn}/> {incomplete.length} logged {incomplete.length===1?"day needs":"days need"} a work description before you can submit.</div>}
-
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap",borderTop:`1px solid ${C.line}`,paddingTop:14}}>
-      <StatusPill s={status}/>
-      {status==="Rejected"
-        ? <button className="primary" style={btnPrimary} onClick={submit}>Resubmit</button>
-        : <button className="primary" style={{...btnPrimary,opacity:locked?.4:1,pointerEvents:locked?"none":"auto"}} onClick={submit}>Submit week</button>}
+    {/* Tab bar header */}
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: `1px solid ${C.line}`, paddingBottom: 2, flexWrap: "wrap", gap: 10 }}>
+      <div style={{ display: "flex", gap: 8 }}>
+        {["Weekly Timesheet", "Approved Timesheets", "Rejected Timesheets"].map(t => {
+          const active = activeTab === t;
+          let count = 0;
+          if (t === "Approved Timesheets") {
+            count = approvedTimesheets.length;
+          } else if (t === "Rejected Timesheets") {
+            count = rejectedTimesheets.length;
+          }
+          
+          return (
+            <button
+              key={t}
+              onClick={() => setActiveTab(t)}
+              style={{
+                border: "none",
+                background: "none",
+                cursor: "pointer",
+                padding: "8px 12px",
+                fontSize: 13,
+                fontWeight: active ? 600 : 500,
+                color: active ? C.ink : C.ink3,
+                borderBottom: `2px solid ${active ? C.ink : "transparent"}`,
+                marginBottom: -3,
+                outline: "none"
+              }}
+            >
+              {t}
+              {t !== "Weekly Timesheet" && (
+                <span className="num" style={{ fontSize: 11, marginLeft: 5, color: C.ink3 }}>({count})</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
     </div>
+
+    {activeTab === "Weekly Timesheet" ? (
+      <>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-end",gap:12,flexWrap:"wrap"}}>
+          <div><div style={{fontSize:12.5,fontWeight:600,color:C.ink,textTransform:"uppercase",letterSpacing:".05em"}}>Weekly timesheet</div>
+            <div style={{fontSize:12,color:C.ink3,marginTop:3}}>Every logged hour needs a short work description.</div></div>
+          <div style={{textAlign:"right"}}>
+            <div className="num" style={{fontSize:13,color:C.ink2}}><span style={{color:C.ink,fontWeight:600,fontSize:16}}>{weekTotal}h</span> logged · {remaining}h left</div>
+            {!locked&&<div style={{fontSize:11.5,color:saved?C.ok:C.ink3,marginTop:3,display:"flex",alignItems:"center",gap:5,justifyContent:"flex-end"}}>{saved?<><Icon n="check" size={12} color={C.ok}/> Draft saved</>:"Saving…"}</div>}</div></div>
+
+        {timesheet.status==="Submitted"&&<Notice tone="accent" icon="lock" title="Pending PM approval" body="Your week is submitted and locked. You'll be notified once it's reviewed."/>}
+        {timesheet.status==="Approved"&&<Notice tone="ok" icon="check" title="Approved" body={timesheet.comment ? `Feedback: "${timesheet.comment}"` : "Sent to billing. Nothing more to do this week."}/>}
+        {timesheet.status==="Rejected"&&<Notice tone="err" icon="alert" title="Changes requested by your PM" body={timesheet.comment||"Please review and resubmit."}/>}
+
+        {!anyHours&&!locked
+          ? <Empty msg="Start logging your hours to track your work."/>
+          : mobile
+            /* mobile: project cards, day chips, inline editor */
+            ? <div style={{display:"flex",flexDirection:"column",gap:12}}>{projects.map(p=>{const rt=timesheet.entries[p.id].reduce((s,e)=>s+e.h,0);
+                return <div key={p.id} style={{border:`1px solid ${C.line}`,borderRadius:8,background:C.surface,overflow:"hidden"}}>
+                  <div style={{padding:"11px 14px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <span style={{fontSize:13,fontWeight:600,color:C.ink}}>{p.name}</span><span className="num" style={{fontSize:12.5,color:C.ink2}}>{rt}h</span></div>
+                  <div style={{display:"flex",gap:6,padding:"12px 14px",flexWrap:"wrap"}}>{DAYS.map((d,di)=>{const e=timesheet.entries[p.id][di];const se=sel&&sel.proj===p.id&&sel.day===di;
+                    return <button key={d} onClick={()=>open(p.id,di)} disabled={locked} style={{flex:"1 1 0",minWidth:40,border:`1px solid ${se?C.accent:needsDesc(e)?C.warn:C.line}`,borderRadius:6,padding:"7px 4px",background:se?C.accentSoft:C.surface,cursor:locked?"default":"pointer"}}>
+                      <div style={{fontSize:10,color:C.ink3}}>{d}</div><div className="num" style={{fontSize:13,color:e.h?(needsDesc(e)?C.warn:C.ink):C.ink3,marginTop:1}}>{e.h||"·"}</div></button>;})}</div>
+                  {sel&&sel.proj===p.id&&<div style={{padding:"0 14px 14px"}}>{editorFor(p.id,sel.day)}</div>}
+                </div>;})}</div>
+            /* desktop: grid with inline editor row beneath the selected project */
+            : <section style={{border:`1px solid ${C.line}`,borderRadius:8,background:C.surface,overflow:"hidden"}}>
+                <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:640}}>
+                  <thead><tr><th style={{...thBase,width:"30%"}}>Project</th>
+                    {DAYS.map((d,i)=><th key={d} style={{...thBase,textAlign:"center",color:i===TODAY?C.accent:C.ink3,opacity:i>4?.8:1}}>{d}</th>)}
+                    <th style={{...thBase,textAlign:"center",color:C.ink}}>Total</th></tr></thead>
+                  <tbody>
+                    {projects.map(p=>{const rt=timesheet.entries[p.id].reduce((s,e)=>s+e.h,0);const main=
+                      <tr key={p.id} className="row"><td style={tdBase}><span style={{fontSize:13,fontWeight:500,color:C.ink}}>{p.name}</span></td>
+                        {DAYS.map((_,d)=>{const e=timesheet.entries[p.id][d];const need=needsDesc(e);const se=sel&&sel.proj===p.id&&sel.day===d;
+                          return <td key={d} onClick={()=>open(p.id,d)} style={{padding:0,borderBottom:`1px solid ${C.line}`,cursor:locked?"default":"pointer",background:se?C.accentSoft:d===TODAY?"rgba(56,97,140,.035)":"transparent",boxShadow:need?`inset 0 -2px 0 ${C.warn}`:undefined}}>
+                            <input className="hcell num" value={e.h||""} placeholder="·" disabled={locked} onFocus={()=>open(p.id,d)}
+                              onChange={ev=>{let n=parseFloat(ev.target.value);n=isNaN(n)||n<0?0:Math.min(24,n);setEntry(p.id,d,{...e,h:n});open(p.id,d);}}
+                              style={{width:"100%",border:"none",background:"transparent",textAlign:"center",padding:"13px 0",fontSize:13.5,color:e.h?(need?C.warn:C.ink):C.ink3,cursor:locked?"not-allowed":"pointer"}}/></td>;})}
+                        <td className="num" style={{...tdBase,textAlign:"center",fontWeight:600,color:C.ink}}>{rt||"—"}</td></tr>;
+                      const out=[main];
+                      if(sel&&sel.proj===p.id) out.push(<tr key={p.id+"-ed"}><td colSpan={9} style={{padding:"10px 12px",borderBottom:`1px solid ${C.line}`,background:"#FBFBF9"}}>{editorFor(p.id,sel.day)}</td></tr>);
+                      return out;})}
+                    <tr style={{borderTop:`1px solid ${C.lineStrong}`}}><td style={{...tdBase,fontSize:12,fontWeight:600,color:C.ink2}}>Daily total</td>
+                      {dayTotals.map((t,i)=><td key={i} className="num" style={{...tdBase,textAlign:"center",fontWeight:600,color:t>LIMIT?C.warn:t?C.ink:C.ink3}}>{t||"—"}</td>)}
+                      <td className="num" style={{...tdBase,textAlign:"center",fontWeight:700,color:C.ink}}>{weekTotal}</td></tr>
+                  </tbody></table></div>
+                {overDay&&!locked&&<div style={{padding:"9px 16px",borderTop:`1px solid ${C.line}`,fontSize:12,color:C.warn,display:"flex",alignItems:"center",gap:8,background:C.warnSoft}}><Icon n="alert" size={14} color={C.warn}/> A day exceeds {LIMIT}h.</div>}
+              </section>}
+
+        {incomplete.length>0&&!locked&&<div style={{fontSize:12,color:C.warn,display:"flex",alignItems:"center",gap:8}}><Dot c={C.warn}/> {incomplete.length} logged {incomplete.length===1?"day needs":"days need"} a work description before you can submit.</div>}
+
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap",borderTop:`1px solid ${C.line}`,paddingTop:14}}>
+          <StatusPill s={timesheet.status}/>
+          {timesheet.status==="Rejected"
+            ? <button className="primary" style={btnPrimary} onClick={submit}>Resubmit</button>
+            : <button className="primary" style={{...btnPrimary,opacity:locked?.4:1,pointerEvents:locked?"none":"auto"}} onClick={submit}>Submit week</button>}
+        </div>
+      </>
+    ) : activeTab === "Approved Timesheets" ? (
+      <HistoricalTimesheetsList 
+        list={approvedTimesheets} 
+        projects={projects} 
+        onGoToWeek={(wIdx) => {
+          setWeekIdx(wIdx);
+          setActiveTab("Weekly Timesheet");
+        }} 
+        type="Approved"
+      />
+    ) : (
+      <HistoricalTimesheetsList 
+        list={rejectedTimesheets} 
+        projects={projects} 
+        onGoToWeek={(wIdx) => {
+          setWeekIdx(wIdx);
+          setActiveTab("Weekly Timesheet");
+        }} 
+        type="Rejected"
+      />
+    )}
   </div>;
 }
 
@@ -322,8 +530,40 @@ function Profile({skills,setSkills,onClose,onLogout,show}){
 
 /* ── dashboard ───────────────────────────────────────────────────── */
 function Dashboard({onLogout,toast,show}){
-  const [entries,setEntries]=useState(seedEntries);
-  const [status,setStatus]=useState("Draft");const [comment,setComment]=useState("");
+  const [timesheets, setTimesheets] = useState(() => [
+    {
+      id: "ts-curr",
+      weekIdx: 0,
+      weekLabel: "24 – 30 June 2026",
+      status: "Draft",
+      comment: "",
+      entries: seedEntries()
+    },
+    {
+      id: "ts-1",
+      weekIdx: -1,
+      weekLabel: "17 – 23 June 2026",
+      status: "Approved",
+      comment: "Great progress on wireframes!",
+      entries: {
+        ipo: [E(4,"Built dashboard wireframes and reviewed client feedback on the layout."),E(4,"Updated typography styles and refined the responsive breakpoints."),E(4,"Finalized responsive layouts and prepared the handoff specs."),E0,E0,E0,E0],
+        lms: [E(2,"Drafted the course-catalog screens and primary navigation flow."),E(2,"Iterated on the quiz UI based on stakeholder feedback."),E(2,"Built empty and loading states for the lesson player."),E(2,"Accessibility pass — fixed contrast issues on the course cards."),E0,E0,E0],
+        internal: [E(1,"Weekly design critique notes and async feedback for the team."),E(1,"Maintained the shared component library and design tokens."),E0,E0,E0,E0,E0],
+      }
+    },
+    {
+      id: "ts-2",
+      weekIdx: -2,
+      weekLabel: "10 – 16 June 2026",
+      status: "Rejected",
+      comment: "Tuesday on LMS looks high — please specify what tasks were performed.",
+      entries: {
+        ipo: [E0,E0,E0,E0,E0,E0,E0],
+        lms: [E(8, "Worked on quiz UI layout and mobile responsive design fixes."), E(8, "Refined accessiblity contrast in dark mode according to WCAG 2.1 guidelines."), E0, E0, E0, E0, E0],
+        internal: [E0, E0, E0, E0, E0, E0, E0]
+      }
+    }
+  ]);
   const [skills,setSkills]=useState(seedSkills);
   const [profileOpen,setProfileOpen]=useState(false);
   const [weekIdx,setWeekIdx]=useState(0);
@@ -331,11 +571,114 @@ function Dashboard({onLogout,toast,show}){
   const [mobile,setMobile]=useState(typeof window!=="undefined"&&window.matchMedia("(max-width:760px)").matches);
   useEffect(()=>{const m=window.matchMedia("(max-width:760px)");const fn=e=>setMobile(e.matches);m.addEventListener?m.addEventListener("change",fn):m.addListener(fn);return ()=>{m.removeEventListener?m.removeEventListener("change",fn):m.removeListener(fn);};},[]);
 
-  const perProjectLogged=id=>entries[id].reduce((a,e)=>a+e.h,0);
-  const week=`${24+weekIdx*7} – ${30+weekIdx*7} June 2026`;
+  const getWeekLabel = (wIdx) => {
+    const startBase = new Date("2026-06-24");
+    const endBase = new Date("2026-06-30");
+    startBase.setDate(startBase.getDate() + wIdx * 7);
+    endBase.setDate(endBase.getDate() + wIdx * 7);
+    const fmt = (d) => {
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      return `${d.getDate()} ${months[d.getMonth()]}`;
+    };
+    return `${fmt(startBase)} – ${fmt(endBase)} 2026`;
+  };
 
-  const allocationsEl=<Allocations projects={PROJECTS} perProjectLogged={perProjectLogged}/>;
-  const timesheetEl=<Timesheet projects={PROJECTS} entries={entries} setEntries={setEntries} status={status} setStatus={setStatus} comment={comment} show={show} mobile={mobile}/>;
+  const activeTimesheet = useMemo(() => {
+    let ts = timesheets.find(t => t.weekIdx === weekIdx);
+    if (!ts) {
+      ts = {
+        id: `ts-dyn-${weekIdx}`,
+        weekIdx,
+        weekLabel: getWeekLabel(weekIdx),
+        status: "Draft",
+        comment: "",
+        entries: {
+          ipo: Array(7).fill(null).map(() => E(0,"")),
+          lms: Array(7).fill(null).map(() => E(0,"")),
+          internal: Array(7).fill(null).map(() => E(0,""))
+        }
+      };
+    }
+    return ts;
+  }, [timesheets, weekIdx]);
+
+  const updateActiveEntries = (newEntries) => {
+    setTimesheets(prev => {
+      const idx = prev.findIndex(t => t.weekIdx === weekIdx);
+      if (idx >= 0) {
+        return prev.map((t, i) => i === idx ? { ...t, entries: newEntries } : t);
+      } else {
+        return [...prev, {
+          id: `ts-dyn-${weekIdx}`,
+          weekIdx,
+          weekLabel: getWeekLabel(weekIdx),
+          status: "Draft",
+          comment: "",
+          entries: newEntries
+        }];
+      }
+    });
+  };
+
+  const updateActiveStatus = (newStatus) => {
+    setTimesheets(prev => {
+      const idx = prev.findIndex(t => t.weekIdx === weekIdx);
+      if (idx >= 0) {
+        return prev.map((t, i) => i === idx ? { ...t, status: newStatus } : t);
+      } else {
+        return [...prev, {
+          id: `ts-dyn-${weekIdx}`,
+          weekIdx,
+          weekLabel: getWeekLabel(weekIdx),
+          status: newStatus,
+          comment: "",
+          entries: {
+            ipo: Array(7).fill(null).map(() => E(0,"")),
+            lms: Array(7).fill(null).map(() => E(0,"")),
+            internal: Array(7).fill(null).map(() => E(0,""))
+          }
+        }];
+      }
+    });
+  };
+
+  const updateActiveComment = (newComment) => {
+    setTimesheets(prev => {
+      const idx = prev.findIndex(t => t.weekIdx === weekIdx);
+      if (idx >= 0) {
+        return prev.map((t, i) => i === idx ? { ...t, comment: newComment } : t);
+      } else {
+        return [...prev, {
+          id: `ts-dyn-${weekIdx}`,
+          weekIdx,
+          weekLabel: getWeekLabel(weekIdx),
+          status: "Draft",
+          comment: newComment,
+          entries: {
+            ipo: Array(7).fill(null).map(() => E(0,"")),
+            lms: Array(7).fill(null).map(() => E(0,"")),
+            internal: Array(7).fill(null).map(() => E(0,""))
+          }
+        }];
+      }
+    });
+  };
+
+  const perProjectLogged = id => activeTimesheet.entries[id].reduce((a,e) => a + e.h, 0);
+
+  const allocationsEl = <Allocations projects={PROJECTS} perProjectLogged={perProjectLogged} />;
+  const timesheetEl = (
+    <Timesheet 
+      projects={PROJECTS} 
+      timesheet={activeTimesheet} 
+      onSaveDraft={updateActiveEntries} 
+      onSubmit={() => updateActiveStatus("Submitted")} 
+      show={show} 
+      mobile={mobile} 
+      timesheets={timesheets} 
+      setWeekIdx={setWeekIdx} 
+    />
+  );
 
   return <div className="pulse-root" style={{minHeight:"100vh",background:C.paper,display:"flex",flexDirection:"column"}}>
     {/* header */}
@@ -346,9 +689,9 @@ function Dashboard({onLogout,toast,show}){
       <div style={{display:"flex",alignItems:"center",gap:mobile?10:18}}>
         <div style={{display:"flex",alignItems:"center",gap:2,color:C.ink2}}>
           <button className="ghost" onClick={()=>setWeekIdx(w=>w-1)} style={navBtn}><Icon n="left" size={16} color={C.ink2}/></button>
-          <span className="num" style={{minWidth:mobile?116:140,textAlign:"center",fontSize:13,color:C.ink}}>{week}</span>
+          <span className="num" style={{minWidth:mobile?116:140,textAlign:"center",fontSize:13,color:C.ink}}>{activeTimesheet.weekLabel}</span>
           <button className="ghost" onClick={()=>setWeekIdx(w=>w+1)} style={navBtn}><Icon n="right" size={16} color={C.ink2}/></button></div>
-        {!mobile&&<StatusPill s={status}/>}
+        {!mobile&&<StatusPill s={activeTimesheet.status}/>}
         <button onClick={()=>setProfileOpen(true)} style={{display:"flex",alignItems:"center",gap:8,border:`1px solid ${C.line}`,borderRadius:99,padding:"3px 3px 3px 11px",background:C.surface,cursor:"pointer"}}>
           {!mobile&&<span style={{fontSize:12.5,fontWeight:500,color:C.ink}}>{USER.name.split(" ")[0]}</span>}
           <span style={{width:28,height:28,borderRadius:99,background:C.ink,color:"#fff",fontSize:11,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center"}}>{USER.name.split(" ").map(n=>n[0]).join("")}</span></button>
@@ -374,8 +717,8 @@ function Dashboard({onLogout,toast,show}){
     {/* demo state control (prototype affordance — no PM in MVP) */}
     {!mobile&&<div style={{position:"fixed",bottom:16,left:"50%",transform:"translateX(-50%)",display:"flex",alignItems:"center",gap:2,border:`1px solid ${C.line}`,background:C.surface,borderRadius:99,padding:3,boxShadow:"0 1px 2px rgba(0,0,0,.04)",zIndex:35}}>
       <span style={{fontSize:11,color:C.ink3,padding:"0 8px 0 10px"}}>Preview status</span>
-      {["Draft","Submitted","Approved","Rejected"].map(s=><button key={s} onClick={()=>{setStatus(s);if(s==="Rejected")setComment("Tuesday on IPO looks high — can you split build vs review hours?");}}
-        style={{border:"none",borderRadius:99,padding:"5px 11px",fontSize:12,cursor:"pointer",fontWeight:status===s?600:500,background:status===s?C.ink:"transparent",color:status===s?"#fff":C.ink2}}>{s}</button>)}</div>}
+      {["Draft","Submitted","Approved","Rejected"].map(s=><button key={s} onClick={()=>{updateActiveStatus(s);if(s==="Rejected")updateActiveComment("Tuesday on IPO looks high — can you split build vs review hours?");}}
+        style={{border:"none",borderRadius:99,padding:"5px 11px",fontSize:12,cursor:"pointer",fontWeight:activeTimesheet.status===s?600:500,background:activeTimesheet.status===s?C.ink:"transparent",color:activeTimesheet.status===s?"#fff":C.ink2}}>{s}</button>)}</div>}
 
     {profileOpen&&<Profile skills={skills} setSkills={setSkills} onClose={()=>setProfileOpen(false)} onLogout={onLogout} show={show}/>}
     {toast}
