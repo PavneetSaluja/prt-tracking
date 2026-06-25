@@ -1,0 +1,1450 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pulse — Admin</title>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>html,body{margin:0;padding:0;background:#F6F5F1}#root{min-height:100vh} .sidebar-item:hover{background:rgba(255,255,255,0.08)!important;color:#ffffff!important;}</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react">
+const { useState, useMemo } = React;
+
+/* Operations & Administration dashboard — the business / ERP layer.
+   Finance · Revenue · People · Access · Sales. Company-wide visibility;
+   does not touch project-delivery workflows owned by PMs/COOs. */
+
+const C={paper:"#F6F5F1",surface:"#FFFFFF",ink:"#18181B",ink2:"#5C5C63",ink3:"#9A9AA1",
+  line:"#E7E6E0",lineStrong:"#D8D7CF",accent:"#38618C",accentSoft:"#EDF1F6",
+  ok:"#3F7A52",okSoft:"#EEF4EF",warn:"#9A6B1E",warnSoft:"#FAF3E6",err:"#A23B3B",errSoft:"#FBF1F0",violet:"#6B5B95"};
+const FONT="'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+const sheet=`
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap');
+*{box-sizing:border-box}.pulse-root,.pulse-root *{font-family:${FONT}}
+.pulse-root{-webkit-font-smoothing:antialiased;letter-spacing:-.005em}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+input,button,select{font-family:inherit}
+.txt:focus{outline:none;border-color:${C.accent}}
+.row:hover{background:#FBFBF9}.ghost:hover{background:#F2F1EC}.primary:hover{background:#000}.lnk:hover{color:${C.ink}}.tab:hover{color:${C.ink}}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#D8D7CF;border-radius:9px}
+`;
+const ICONS={
+  clock:'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  bars:'<line x1="6" x2="6" y1="20" y2="14"/><line x1="12" x2="12" y1="20" y2="6"/><line x1="18" x2="18" y1="20" y2="10"/>',
+  wallet:'<rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/><circle cx="16" cy="14" r="1.4"/>',
+  folder:'<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+  users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  trend:'<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
+  shield:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+  bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  x:'<path d="M18 6 6 18"/><path d="M6 6l12 12"/>',plus:'<path d="M5 12h14"/><path d="M12 5v14"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',arrow:'<path d="M5 12h14"/><path d="M12 5l7 7-7 7"/>',
+  edit:'<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+  ban:'<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
+  down:'<path d="m6 9 6 6 6-6"/>',right:'<path d="m9 18 6-6-6-6"/>',
+  logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>',
+  building:'<rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M16 6h.01M8 10h.01M16 10h.01M8 14h.01M16 14h.01"/>',
+  brief:'<rect width="20" height="14" x="2" y="7" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>',
+  eye:'<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+};
+function Icon({n,size=16,color="currentColor",sw=2}){return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" style={{display:"block"}} dangerouslySetInnerHTML={{__html:ICONS[n]}}/>;}
+
+/* ── money ───────────────────────────────────────────────────────── */
+const inr=n=>"₹"+Math.round(n).toLocaleString("en-IN");
+const inrC=n=>{const a=Math.abs(n),s=n<0?"-":"";if(a>=1e7)return s+"₹"+(a/1e7).toFixed(2)+" Cr";if(a>=1e5)return s+"₹"+(a/1e5).toFixed(1)+" L";return s+inr(a);};
+
+/* ── data ────────────────────────────────────────────────────────── */
+const PNL=[{m:"Jan",rev:62,exp:45},{m:"Feb",rev:70,exp:48},{m:"Mar",rev:75,exp:52},{m:"Apr",rev:80,exp:50},{m:"May",rev:88,exp:58},{m:"Jun",rev:95,exp:60}]; // ₹ lakhs
+const STATUS_DIST=[{label:"Active",value:8,color:C.accent},{label:"Completed",value:6,color:C.ok},{label:"On Hold",value:2,color:C.warn},{label:"Delayed",value:3,color:C.err},{label:"Pipeline",value:5,color:C.ink3}];
+
+const FINANCE0=[
+  {id:"f1",type:"Income",proj:"ipo",cat:"Project Billing",date:"30 May 2026",amt:8000000,desc:"Milestone 2 delivery billing"},
+  {id:"f2",type:"Income",proj:"ipo",cat:"Retainer",date:"01 May 2026",amt:4000000,desc:"Monthly retainer"},
+  {id:"f3",type:"Expense",proj:"ipo",cat:"Salary Cost",date:"31 May 2026",amt:6000000,desc:"Delivery team salaries"},
+  {id:"f4",type:"Expense",proj:"ipo",cat:"Software Cost",date:"15 May 2026",amt:1800000,desc:"Infra & licenses"},
+  {id:"f5",type:"Income",proj:"astra",cat:"Project Billing",date:"28 May 2026",amt:12000000,desc:"Phase 1 acceptance"},
+  {id:"f6",type:"Income",proj:"astra",cat:"Consulting",date:"10 May 2026",amt:4000000,desc:"Architecture advisory"},
+  {id:"f7",type:"Expense",proj:"astra",cat:"Salary Cost",date:"31 May 2026",amt:8500000,desc:"Engineering salaries"},
+  {id:"f8",type:"Expense",proj:"astra",cat:"Vendor Cost",date:"20 May 2026",amt:2500000,desc:"Payment gateway vendor"},
+  {id:"f9",type:"Income",proj:"lms",cat:"Project Billing",date:"22 May 2026",amt:4000000,desc:"Internal cross-charge"},
+  {id:"f10",type:"Expense",proj:"lms",cat:"Salary Cost",date:"31 May 2026",amt:5200000,desc:"Design & content team"},
+  {id:"f11",type:"Expense",proj:"phoenix",cat:"Salary Cost",date:"31 May 2026",amt:3800000,desc:"Design systems team"},
+  {id:"f12",type:"Income",proj:"helios",cat:"Retainer",date:"05 Jun 2026",amt:9000000,desc:"Pre-kickoff retainer"},
+  {id:"f13",type:"Expense",proj:"helios",cat:"Marketing",date:"03 Jun 2026",amt:2000000,desc:"Discovery & pitch costs"},
+  {id:"f14",type:"Expense",proj:null,cat:"Infrastructure",date:"01 Jun 2026",amt:1200000,desc:"Org-wide cloud & tooling"},
+];
+const PROJECTS=[
+  {id:"ipo",name:"IPO Platform",client:"Meridian Capital",pm:"Sarah Jenkins",sales:"Rahul Sharma",status:"Active",resources:6},
+  {id:"astra",name:"Astra Commerce Engine",client:"Astra Retail Group",pm:"David Okoye",sales:"Priya Menon",status:"Active",resources:5},
+  {id:"lms",name:"Learnify LMS",client:"HabileLabs",pm:"Sarah Jenkins",sales:"—",status:"On Hold",resources:3},
+  {id:"phoenix",name:"Phoenix Design System 2.0",client:"Internal Platform",pm:"Sarah Jenkins",sales:"—",status:"Active",resources:2},
+  {id:"helios",name:"Helios Mobile App",client:"Helios Logistics",pm:"David Okoye",sales:"Rahul Sharma",status:"Pipeline",resources:0},
+];
+const PEOPLE0=[
+  {id:"EMP-1001",name:"Sarah Jenkins",dept:"Delivery",designation:"Delivery Lead",role:"PM",status:"Active",joined:"12 Jan 2024",manager:"Head of Delivery",email:"sarah.j@pulseorganizer.io",project:"IPO Platform",last:"Astra Commerce",util:60},
+  {id:"EMP-1002",name:"David Okoye",dept:"Delivery",designation:"Senior PM",role:"PM",status:"Active",joined:"03 Mar 2024",manager:"Head of Delivery",email:"david.o@pulseorganizer.io",project:"Astra Commerce",last:"Helios Mobile",util:55},
+  {id:"EMP-1003",name:"Pavneet Kaur",dept:"Product Design",designation:"UI/UX Designer",role:"Resource",status:"Active",joined:"18 May 2024",manager:"Sarah Jenkins",email:"pavneet.k@pulseorganizer.io",project:"IPO Platform",last:"LMS",util:70},
+  {id:"EMP-1004",name:"Rahul Nair",dept:"Engineering",designation:"React Developer",role:"Resource",status:"Active",joined:"02 Feb 2024",manager:"David Okoye",email:"rahul.n@pulseorganizer.io",project:"IPO Platform",last:"Astra",util:25},
+  {id:"EMP-1005",name:"Marcus Vance",dept:"Product Design",designation:"Designer",role:"Resource",status:"Active",joined:"20 May 2024",manager:"Sarah Jenkins",email:"marcus.v@pulseorganizer.io",project:"Phoenix DS",last:"Astra",util:75},
+  {id:"EMP-1006",name:"Linda Wu",dept:"Engineering",designation:"Backend Engineer",role:"Resource",status:"Active",joined:"11 Nov 2023",manager:"David Okoye",email:"linda.w@pulseorganizer.io",project:"Astra Commerce",last:"IPO",util:100},
+  {id:"EMP-1007",name:"David Chen",dept:"Quality",designation:"QA Engineer",role:"Resource",status:"Active",joined:"09 Sep 2024",manager:"David Okoye",email:"david.c@pulseorganizer.io",project:"Astra Commerce",last:"LMS",util:40},
+  {id:"EMP-1008",name:"Sophia Martinez",dept:"Product Design",designation:"Product Designer",role:"Resource",status:"Active",joined:"14 Jun 2024",manager:"Sarah Jenkins",email:"sophia.m@pulseorganizer.io",project:"Phoenix DS",last:"IPO",util:30},
+  {id:"EMP-1009",name:"Liam Robinson",dept:"Product Design",designation:"Motion Designer",role:"Resource",status:"Active",joined:"22 Jul 2024",manager:"Sarah Jenkins",email:"liam.r@pulseorganizer.io",project:"IPO Platform",last:"LMS",util:120},
+  {id:"EMP-1010",name:"Rahul Sharma",dept:"Sales",designation:"Sales Manager",role:"Sales",status:"Active",joined:"05 Jan 2023",manager:"VP Sales",email:"rahul.s@pulseorganizer.io",project:"—",last:"—",util:0},
+  {id:"EMP-1011",name:"Priya Menon",dept:"Sales",designation:"Account Executive",role:"Sales",status:"Active",joined:"19 Apr 2024",manager:"Rahul Sharma",email:"priya.m@pulseorganizer.io",project:"—",last:"—",util:0},
+  {id:"EMP-1012",name:"Aman Gupta",dept:"Sales",designation:"Sales Executive",role:"Sales",status:"Active",joined:"10 Oct 2024",manager:"Rahul Sharma",email:"aman.g@pulseorganizer.io",project:"—",last:"—",util:0},
+  {id:"EMP-1013",name:"Neha Kapoor",dept:"Executive",designation:"Chief Operating Officer",role:"COO",status:"Active",joined:"15 Aug 2022",manager:"CEO",email:"neha.k@pulseorganizer.io",project:"—",last:"—",util:0},
+  {id:"EMP-1014",name:"Arjun Mehta",dept:"Operations",designation:"Operations Admin",role:"Admin",status:"Active",joined:"01 Dec 2022",manager:"CEO",email:"admin@pulseorganizer.io",project:"—",last:"—",util:0},
+  {id:"EMP-1020",name:"Fiona Vance",dept:"Finance",designation:"Finance Lead",role:"Finance",status:"Active",joined:"10 Jan 2024",manager:"COO",email:"finance@pulseorganizer.io",skills:["Accounting","Excel"],project:"—",last:"—",util:0},
+  {id:"EMP-1021",name:"Harriet Reed",dept:"HR",designation:"HR Generalist",role:"HR",status:"Active",joined:"15 Feb 2024",manager:"COO",email:"hr@pulseorganizer.io",skills:["Recruiting","Onboarding"],project:"—",last:"—",util:0},
+  {id:"EMP-1015",name:"Karan Shah",dept:"Engineering",designation:"Developer",role:"Resource",status:"Inactive",joined:"08 Mar 2023",manager:"David Okoye",email:"karan.s@pulseorganizer.io",project:"—",last:"IPO",util:0},
+];
+const SALES0=[
+  {name:"Rahul Sharma",target:5000000,achieved:3200000,incentive:45000,period:"Q2 FY26",closed:6,revenue:12000000,opps:4,trend:[18,22,26,24,30,32]},
+  {name:"Priya Menon",target:4000000,achieved:3800000,incentive:60000,period:"Q2 FY26",closed:5,revenue:9500000,opps:3,trend:[20,24,28,30,34,38]},
+  {name:"Aman Gupta",target:3000000,achieved:1200000,incentive:10000,period:"Q2 FY26",closed:2,revenue:3000000,opps:5,trend:[6,8,7,10,11,12]},
+];
+const ACCESS_SECTIONS = [
+  {
+    key: "Dashboard",
+    label: "Dashboard",
+    permissions: [
+      { key: "viewDashboard", label: "View Dashboard" },
+      { key: "viewFinancialSummary", label: "View Financial Summary (Revenue, Expenses, Net Income)" },
+      { key: "viewPLCharts", label: "View P&L Charts" },
+      { key: "viewRecentFinanceEntries", label: "View Recent Finance Entries" }
+    ]
+  },
+  {
+    key: "Finance",
+    label: "Finance",
+    permissions: [
+      { key: "viewFinanceModule", label: "View Finance Module (Base Permission)" },
+      { key: "viewAllFinanceEntries", label: "View All Finance Entries (Full Access)" },
+      { key: "viewOwnFinanceEntriesOnly", label: "View Own Finance Entries Only (Restricted)" },
+      { key: "viewFinancialReports", label: "View Financial Reports" },
+      { key: "createFinanceEntries", label: "Create Finance Entries" },
+      { key: "deleteFinanceEntries", label: "Delete Finance Entries" }
+    ]
+  },
+  {
+    key: "Hr",
+    label: "Hr",
+    permissions: [
+      { key: "viewHRModule", label: "View HR Module" },
+      { key: "createEmployees", label: "Create Employees" },
+      { key: "deleteEmployees", label: "Delete Employees" },
+      { key: "editEmployees", label: "Edit Employees" },
+      { key: "exportEmployees", label: "Export Employees" },
+      { key: "viewEmployeeSalaryInfo", label: "View Employee Salary Information" },
+      { key: "viewEmployees", label: "View Employees" }
+    ]
+  },
+  {
+    key: "Incentives",
+    label: "Incentives",
+    permissions: [
+      { key: "viewIncentives", label: "View Incentives (Base Permission)" },
+      { key: "approveRejectIncentiveCalculations", label: "Approve/Reject Incentive Calculations" },
+      { key: "editIncentives", label: "Edit Incentives" },
+      { key: "exportIncentives", label: "Export Incentives" },
+      { key: "viewAllIncentives", label: "View All Incentives (Full Access)" },
+      { key: "viewOwnIncentivesOnly", label: "View Own Incentives Only (Restricted)" }
+    ]
+  },
+  {
+    key: "Projects",
+    label: "Projects",
+    permissions: [
+      { key: "viewProjects", label: "View Projects (Base Permission)" },
+      { key: "createProjects", label: "Create Projects" },
+      { key: "deleteProjects", label: "Delete Projects" },
+      { key: "editProjects", label: "Edit Projects" },
+      { key: "exportProjects", label: "Export Projects" },
+      { key: "viewAllProjects", label: "View All Projects (Full Access)" },
+      { key: "viewManageProjectResources", label: "View and Manage Project Resources" },
+      { key: "viewOwnProjectsOnly", label: "View Own Projects Only (Restricted)" },
+      { key: "viewProjectFinancials", label: "View Project Financials" }
+    ]
+  },
+  {
+    key: "UserManagement",
+    label: "User Management",
+    permissions: [
+      { key: "viewUsers", label: "View Users" },
+      { key: "viewRoles", label: "View Roles" },
+      { key: "createRoles", label: "Create Roles" },
+      { key: "createUsers", label: "Create Users" },
+      { key: "deleteRoles", label: "Delete Roles" },
+      { key: "deleteUsers", label: "Delete Users" },
+      { key: "editRoles", label: "Edit Roles" },
+      { key: "editUsers", label: "Edit Users" }
+    ]
+  }
+];
+
+const DEFAULT_ROLE_PERMS = {
+  finance: {
+    name: "Finance",
+    desc: "Finance team member",
+    viewDashboard: true, viewFinancialSummary: true, viewPLCharts: true, viewRecentFinanceEntries: true,
+    viewFinanceModule: true, viewAllFinanceEntries: true, viewOwnFinanceEntriesOnly: false, viewFinancialReports: true, createFinanceEntries: true, deleteFinanceEntries: true,
+    viewHRModule: false, createEmployees: false, deleteEmployees: false, editEmployees: false, exportEmployees: false, viewEmployeeSalaryInfo: false, viewEmployees: true,
+    viewIncentives: true, approveRejectIncentiveCalculations: false, editIncentives: false, exportIncentives: false, viewAllIncentives: true, viewOwnIncentivesOnly: false,
+    viewProjects: true, createProjects: false, deleteProjects: false, editProjects: false, exportProjects: false, viewAllProjects: true, viewManageProjectResources: false, viewOwnProjectsOnly: false, viewProjectFinancials: true,
+    viewUsers: false, viewRoles: false, createRoles: false, createUsers: false, deleteRoles: false, deleteUsers: false, editRoles: false, editUsers: false
+  },
+  hr: {
+    name: "HR",
+    desc: "Human Resources team member",
+    viewDashboard: true, viewFinancialSummary: false, viewPLCharts: false, viewRecentFinanceEntries: false,
+    viewFinanceModule: false, viewAllFinanceEntries: false, viewOwnFinanceEntriesOnly: false, viewFinancialReports: false, createFinanceEntries: false, deleteFinanceEntries: false,
+    viewHRModule: true, createEmployees: true, deleteEmployees: true, editEmployees: true, exportEmployees: true, viewEmployeeSalaryInfo: false, viewEmployees: true,
+    viewIncentives: false, approveRejectIncentiveCalculations: false, editIncentives: false, exportIncentives: false, viewAllIncentives: false, viewOwnIncentivesOnly: false,
+    viewProjects: false, createProjects: false, deleteProjects: false, editProjects: false, exportProjects: false, viewAllProjects: false, viewManageProjectResources: false, viewOwnProjectsOnly: false, viewProjectFinancials: false,
+    viewUsers: true, viewRoles: false, createRoles: false, createUsers: true, deleteRoles: false, deleteUsers: true, editRoles: false, editUsers: true
+  },
+  "project manager": {
+    name: "Project Manager",
+    desc: "Project Manager overseeing resource allocations",
+    viewDashboard: true, viewFinancialSummary: false, viewPLCharts: false, viewRecentFinanceEntries: false,
+    viewFinanceModule: false, viewAllFinanceEntries: false, viewOwnFinanceEntriesOnly: false, viewFinancialReports: false, createFinanceEntries: false, deleteFinanceEntries: false,
+    viewHRModule: false, createEmployees: false, deleteEmployees: false, editEmployees: false, exportEmployees: false, viewEmployeeSalaryInfo: false, viewEmployees: true,
+    viewIncentives: false, approveRejectIncentiveCalculations: false, editIncentives: false, exportIncentives: false, viewAllIncentives: false, viewOwnIncentivesOnly: false,
+    viewProjects: true, createProjects: true, deleteProjects: false, editProjects: true, exportProjects: true, viewAllProjects: true, viewManageProjectResources: true, viewOwnProjectsOnly: true, viewProjectFinancials: false,
+    viewUsers: false, viewRoles: false, createRoles: false, createUsers: false, deleteRoles: false, deleteUsers: false, editRoles: false, editUsers: false
+  },
+  sales: {
+    name: "Sales",
+    desc: "Sales department representative",
+    viewDashboard: true, viewFinancialSummary: false, viewPLCharts: false, viewRecentFinanceEntries: false,
+    viewFinanceModule: false, viewAllFinanceEntries: false, viewOwnFinanceEntriesOnly: false, viewFinancialReports: false, createFinanceEntries: false, deleteFinanceEntries: false,
+    viewHRModule: false, createEmployees: false, deleteEmployees: false, editEmployees: false, exportEmployees: false, viewEmployeeSalaryInfo: false, viewEmployees: false,
+    viewIncentives: true, approveRejectIncentiveCalculations: false, editIncentives: false, exportIncentives: true, viewAllIncentives: true, viewOwnIncentivesOnly: true,
+    viewProjects: false, createProjects: false, deleteProjects: false, editProjects: false, exportProjects: false, viewAllProjects: false, viewManageProjectResources: false, viewOwnProjectsOnly: false, viewProjectFinancials: false,
+    viewUsers: false, viewRoles: false, createRoles: false, createUsers: false, deleteRoles: false, deleteUsers: false, editRoles: false, editUsers: false
+  },
+  resources: {
+    name: "Resources",
+    desc: "Active company employee/resource",
+    viewDashboard: true, viewFinancialSummary: false, viewPLCharts: false, viewRecentFinanceEntries: false,
+    viewFinanceModule: false, viewAllFinanceEntries: false, viewOwnFinanceEntriesOnly: false, viewFinancialReports: false, createFinanceEntries: false, deleteFinanceEntries: false,
+    viewHRModule: false, createEmployees: false, deleteEmployees: false, editEmployees: false, exportEmployees: false, viewEmployeeSalaryInfo: false, viewEmployees: false,
+    viewIncentives: false, approveRejectIncentiveCalculations: false, editIncentives: false, exportIncentives: false, viewAllIncentives: false, viewOwnIncentivesOnly: false,
+    viewProjects: true, createProjects: false, deleteProjects: false, editProjects: false, exportProjects: false, viewAllProjects: false, viewManageProjectResources: false, viewOwnProjectsOnly: true, viewProjectFinancials: false,
+    viewUsers: false, viewRoles: false, createRoles: false, createUsers: false, deleteRoles: false, deleteUsers: false, editRoles: false, editUsers: false
+  },
+  admin: {
+    name: "Admin",
+    desc: "Operations Admin",
+    viewDashboard: true, viewFinancialSummary: true, viewPLCharts: true, viewRecentFinanceEntries: true,
+    viewFinanceModule: true, viewAllFinanceEntries: true, viewOwnFinanceEntriesOnly: false, viewFinancialReports: true, createFinanceEntries: true, deleteFinanceEntries: true,
+    viewHRModule: true, createEmployees: true, deleteEmployees: true, editEmployees: true, exportEmployees: true, viewEmployeeSalaryInfo: true, viewEmployees: true,
+    viewIncentives: true, approveRejectIncentiveCalculations: true, editIncentives: true, exportIncentives: true, viewAllIncentives: true, viewOwnIncentivesOnly: false,
+    viewProjects: true, createProjects: true, deleteProjects: true, editProjects: true, exportProjects: true, viewAllProjects: true, viewManageProjectResources: true, viewOwnProjectsOnly: false, viewProjectFinancials: true,
+    viewUsers: true, viewRoles: true, createRoles: true, createUsers: true, deleteRoles: true, deleteUsers: true, editRoles: true, editUsers: true
+  }
+};
+
+const loadRolePermissions = () => {
+  const saved = localStorage.getItem("pulse_role_perms");
+  if (saved) {
+    try { return JSON.parse(saved); } catch (e) {}
+  }
+  return DEFAULT_ROLE_PERMS;
+};
+
+const saveRolePermissions = (perms) => {
+  localStorage.setItem("pulse_role_perms", JSON.stringify(perms));
+};
+
+const hasPermission = (role, permissionKey) => {
+  if (role === "Admin") return true;
+  const perms = loadRolePermissions();
+  const roleKey = role.toLowerCase();
+  if (perms[roleKey] && perms[roleKey][permissionKey] !== undefined) {
+    return perms[roleKey][permissionKey];
+  }
+  if (DEFAULT_ROLE_PERMS[roleKey]) {
+    return DEFAULT_ROLE_PERMS[roleKey][permissionKey];
+  }
+  return false;
+};
+const NOTIFS=[
+  {t:"Priya Menon hit 95% of her Q2 sales target",time:"1h ago",tone:C.ok},
+  {t:"Revenue added — ₹90 L retainer on Helios",time:"3h ago",tone:C.accent},
+  {t:"New employee added — Aman Gupta (Sales)",time:"Yesterday",tone:C.ink3},
+  {t:"Expense added — ₹12 L infrastructure",time:"Yesterday",tone:C.ink3},
+];
+const projName=id=>(PROJECTS.find(p=>p.id===id)||{name:"Org-wide"}).name;
+const CLIENTS0=[
+  {id:"cl_meridian",name:"Meridian Capital",industry:"Financial Services",contact:"Anita Rao",email:"anita.rao@meridian.com",phone:"+91 98100 11223",website:"meridiancap.com",country:"India",address:"BKC, Mumbai",notes:"Key account — IPO platform engagement.",status:"Active"},
+  {id:"cl_astra",name:"Astra Retail Group",industry:"Retail",contact:"James Okafor",email:"james@astraretail.com",phone:"+44 20 7946 0000",website:"astraretail.com",country:"United Kingdom",address:"London",notes:"Commerce re-platforming.",status:"Active"},
+  {id:"cl_habile",name:"HabileLabs",industry:"IT Services",contact:"Internal Ops",email:"ops@habilelabs.io",phone:"+91 141 000 0000",website:"habilelabs.io",country:"India",address:"Jaipur",notes:"Internal product work.",status:"Active"},
+  {id:"cl_internal",name:"Internal Platform",industry:"Internal",contact:"Platform Team",email:"platform@pulseorganizer.io",phone:"—",website:"—",country:"India",address:"—",notes:"Internal design-system initiative.",status:"Active"},
+  {id:"cl_helios",name:"Helios Logistics",industry:"Logistics",contact:"Sandeep Verma",email:"sandeep@helios.co",phone:"+91 99000 22110",website:"helioslogistics.co",country:"India",address:"Pune",notes:"New mobile app — pre-kickoff.",status:"Active"},
+  {id:"cl_infosys",name:"Infosys",industry:"IT Services",contact:"Meera Iyer",email:"meera@infosys.com",phone:"+91 80 2852 0261",website:"infosys.com",country:"India",address:"Bengaluru",notes:"Prospect — no active projects.",status:"Active"},
+  {id:"cl_infoedge",name:"Info Edge",industry:"Internet",contact:"Rohit Sethi",email:"rohit@infoedge.com",phone:"+91 120 333 0000",website:"infoedge.com",country:"India",address:"Noida",notes:"Prospect.",status:"Active"},
+  {id:"cl_mumbai",name:"Mumbai client",industry:"Consulting",contact:"Rohan Sharma",email:"rohan@mumbaiclient.com",phone:"+91 99999 88888",website:"mumbaiclient.com",country:"India",address:"Nariman Point, Mumbai",notes:"Partner with outsourced resource pool.",status:"Active"},
+  {id:"cl_infobeans",name:"InfoBeans",industry:"IT Services",contact:"Kavya Nair",email:"kavya@infobeans.com",phone:"+91 731 471 1100",website:"infobeans.com",country:"India",address:"Indore",notes:"Prospect.",status:"Inactive"},
+  {id:"cl_tcs",name:"Tata Consultancy Services (TCS)",industry:"IT Services",contact:"Rajesh Gopinathan",email:"rajesh@tcs.com",phone:"+91 22 6778 9999",website:"tcs.com",country:"India",address:"Mumbai",notes:"Major enterprise lead.",status:"Active"},
+  {id:"cl_wipro",name:"Wipro Technologies",industry:"IT Services",contact:"Thierry Delaporte",email:"thierry@wipro.com",phone:"+91 80 2844 0011",website:"wipro.com",country:"India",address:"Bengaluru",notes:"Prospect.",status:"Active"},
+  {id:"cl_cognizant",name:"Cognizant",industry:"IT Consulting",contact:"Brian Humphries",email:"brian@cognizant.com",phone:"+1 201 801 0233",website:"cognizant.com",country:"USA",address:"Teaneck, USA",notes:"Exploratory talks on cloud ops.",status:"Active"}
+];
+const OUTSOURCED0 = [
+  { id: "out_1", name: "Jyot", clientId: "cl_mumbai", status: "Active", start: "15-Dec-25", end: "", profile: "QA", source: "Habilelabs", input: "20,000 + GST", billing: "28,000 + GST", margin: "8,000", note: "0 paid leaves", projId: "ipo", skills: "Selenium, Java, Cypress", duration: "6 Months", allocation: "100%" },
+  { id: "out_2", name: "Kapil Saxena", clientId: "cl_mumbai", status: "Active", start: "19-Dec-25", end: "", profile: "QA", source: "Habilelabs", input: "20,000 + GST", billing: "28,000 + GST", margin: "8,000", note: "1 paid leaves", projId: "lms", skills: "Manual Testing, Postman, JIRA", duration: "6 Months", allocation: "100%" },
+  { id: "out_3", name: "Alvin", clientId: "cl_mumbai", status: "Active", start: "15-Dec-25", end: "", profile: "Solution Architect", source: "Geek2Connect", input: "85,000 + GST", billing: "1,10,000 + GST", margin: "25,000", note: "2 paid leaves", projId: "astra", skills: "AWS, Kubernetes, Java, Spring Boot", duration: "12 Months", allocation: "50%" },
+  { id: "out_4", name: "Janabai Shinde", clientId: "cl_mumbai", status: "Active", start: "07-Jan-26", end: "", profile: "Frontend Mobile Developer", source: "Teknikoz", input: "35,000 + GST", billing: "45,000 + GST", margin: "10,000", note: "3 paid leaves", projId: "helios", skills: "React Native, Flutter, Swift", duration: "3 Months", allocation: "100%" },
+  { id: "out_5", name: "Arshad Qadri", clientId: "cl_mumbai", status: "Active", start: "07-Jan-26", end: "", profile: "Frontend Web Developer", source: "Modern Agile Technologies", input: "30,000 + GST", billing: "40,000 + GST", margin: "10,000", note: "4 paid leaves", projId: "ipo", skills: "React, Next.js, TypeScript", duration: "6 Months", allocation: "100%" }
+];
+const avail=u=>u===0?"Available":u<100?"Partially Allocated":u===100?"Fully Allocated":"Overallocated";
+const availTone=u=>u===0?C.ok:u<100?C.accent:u===100?C.ink2:C.warn;
+/* oversight data (folded in from the Admin monitor) */
+const TS={"EMP-1003":"Submitted","EMP-1004":"Rejected","EMP-1005":"Submitted","EMP-1006":"Approved","EMP-1007":"Approved","EMP-1008":"Missing","EMP-1009":"Late"};
+const COMPLETION={ipo:65,astra:72,lms:40,phoenix:55,helios:8};
+const ROSTER={ipo:["EMP-1003","EMP-1004","EMP-1009"],astra:["EMP-1005","EMP-1006","EMP-1007"],lms:["EMP-1003","EMP-1009"],phoenix:["EMP-1005","EMP-1008"],helios:[]};
+const PMS=[{name:"Sarah Jenkins",projects:["ipo","lms","phoenix"],logged:38},{name:"David Okoye",projects:["astra","helios"],logged:32}];
+const WORKLOG={
+  "EMP-1003":[{date:"26 Jun",proj:"ipo",h:4,d:"Finalized responsive layouts and prepared the handoff specs."},{date:"25 Jun",proj:"lms",h:2,d:"Iterated on the quiz UI from stakeholder feedback."},{date:"24 Jun",proj:"ipo",h:4,d:"Built dashboard wireframes and reviewed client feedback."}],
+  "EMP-1005":[{date:"26 Jun",proj:"phoenix",h:4,d:"Token contrast audit across the component set."},{date:"25 Jun",proj:"astra",h:3,d:"Checkout flow redlines and spacing corrections."}],
+  "EMP-1006":[{date:"24 Jun",proj:"astra",h:8,d:"Payment gateway integration and unit tests."}],
+  "EMP-1009":[{date:"26 Jun",proj:"ipo",h:8,d:"Animated dashboard load sequence and chart transitions."}],
+  "EMP-1004":[{date:"25 Jun",proj:"ipo",h:2,d:"Set up the project scaffold and routing."}],
+  "EMP-1007":[{date:"24 Jun",proj:"astra",h:3,d:"Regression suite for the checkout flow."}],
+};
+const empName=(id,people)=>(people.find(p=>p.id===id)||{name:id}).name;
+const empRole=(id,people)=>(people.find(p=>p.id===id)||{designation:"—"}).designation;
+
+/* ── primitives ──────────────────────────────────────────────────── */
+function Dot({c}){return <span style={{width:6,height:6,borderRadius:99,background:c,display:"inline-block"}}/>;}
+const toneFor=s=>({Active:C.ok,"On Hold":C.warn,Delayed:C.err,Completed:C.ink3,Pipeline:C.accent,Planning:C.accent,
+  Inactive:C.ink3,PM:C.accent,Resource:C.ink2,Sales:C.violet,Admin:C.ink,COO:C.ok,
+  Submitted:C.accent,Pending:C.accent,Approved:C.ok,Rejected:C.err,Missing:C.err,Late:C.warn}[s]||C.ink3);
+function Tag({s,strong}){const c=toneFor(s);return <span style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12,color:strong?c:C.ink2,whiteSpace:"nowrap"}}><Dot c={c}/>{s}</span>;}
+function Panel({children,pad=true,title,sub,right}){return <section style={{border:`1px solid ${C.line}`,borderRadius:8,background:C.surface}}>
+  {title&&<div style={{padding:"14px 16px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12}}>
+    <div><div style={{fontSize:13,fontWeight:600,color:C.ink}}>{title}</div>{sub&&<div style={{fontSize:12,color:C.ink3,marginTop:2}}>{sub}</div>}</div>{right}</div>}
+  <div style={pad?{padding:16}:undefined}>{children}</div></section>;}
+function KPI({label,value,note,tone}){return <div style={{border:`1px solid ${C.line}`,borderRadius:8,background:C.surface,padding:"14px 16px"}}>
+  <div style={{fontSize:11.5,color:C.ink3}}>{label}</div><div className="num" style={{fontSize:22,fontWeight:600,color:C.ink,marginTop:6,letterSpacing:"-0.02em"}}>{value}</div>
+  {note&&<div style={{fontSize:11.5,color:tone||C.ink3,marginTop:3,display:"flex",alignItems:"center",gap:6}}>{tone&&<Dot c={tone}/>}{note}</div>}</div>;}
+const th={fontSize:11,fontWeight:600,color:C.ink3,padding:"10px 10px",textAlign:"left",borderBottom:`1px solid ${C.line}`,whiteSpace:"nowrap"};
+const td={fontSize:13,color:C.ink2,padding:"11px 10px",textAlign:"left",borderBottom:`1px solid ${C.line}`,verticalAlign:"middle"};
+const btnGhost={border:`1px solid ${C.line}`,background:C.surface,color:C.ink2,padding:"7px 12px",fontSize:12.5,fontWeight:500,borderRadius:6,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6};
+const btnPrimary={border:"none",background:C.ink,color:"#fff",padding:"8px 16px",fontSize:13,fontWeight:600,borderRadius:6,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:7};
+const inputStyle={width:"100%",border:`1px solid ${C.lineStrong}`,borderRadius:6,padding:"9px 11px",fontSize:13.5,color:C.ink};
+function Select({value,onChange,opts}){return <select className="txt" value={value} onChange={e=>onChange(e.target.value)} style={{border:`1px solid ${C.line}`,borderRadius:6,padding:"7px 10px",fontSize:12.5,color:C.ink,background:C.surface,cursor:"pointer"}}>{opts.map(o=><option key={o}>{o}</option>)}</select>;}
+function Empty({msg}){return <div style={{padding:"34px 16px",textAlign:"center",color:C.ink3,fontSize:13,border:`1px dashed ${C.lineStrong}`,borderRadius:8}}>{msg}</div>;}
+const Field=({label,children})=> <div style={{marginBottom:12}}><div style={{fontSize:12,color:C.ink2,marginBottom:5}}>{label}</div>{children}</div>;
+function Modal({title,onClose,children,footer,w=440}){return <div style={{position:"fixed",inset:0,zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+  <div onClick={onClose} style={{position:"absolute",inset:0,background:"rgba(20,20,25,.22)"}}/>
+  <div style={{position:"relative",background:C.surface,border:`1px solid ${C.line}`,borderRadius:10,width:w,maxWidth:"100%",maxHeight:"90vh",overflowY:"auto",boxShadow:"0 8px 30px rgba(0,0,0,.14)"}}>
+    <div style={{padding:"14px 18px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,background:C.surface}}>
+      <span style={{fontSize:14,fontWeight:600,color:C.ink}}>{title}</span>
+      <button className="ghost" onClick={onClose} style={{border:"none",background:"none",borderRadius:6,padding:4,cursor:"pointer"}}><Icon n="x" size={16} color={C.ink2}/></button></div>
+    <div style={{padding:18}}>{children}</div>
+    {footer&&<div style={{padding:"12px 18px",borderTop:`1px solid ${C.line}`,display:"flex",justifyContent:"flex-end",gap:8,position:"sticky",bottom:0,background:C.surface}}>{footer}</div>}</div></div>;}
+function useToast(){const [t,setT]=useState(null);const show=(m,tone="ok")=>{setT({m,tone,k:Date.now()});setTimeout(()=>setT(null),2600);};
+  const node=t?<div key={t.k} style={{position:"fixed",bottom:20,right:20,zIndex:120,background:C.ink,color:"#fff",padding:"10px 16px",borderRadius:8,fontSize:13,boxShadow:"0 6px 20px rgba(0,0,0,.2)",display:"flex",alignItems:"center",gap:9}}>{t.tone==="ok"&&<Icon n="check" size={15} color="#8fd6a5"/>}{t.m}</div>:null;
+  return [node,show];}
+const matches=(q,...f)=>!q||f.join(" ").toLowerCase().includes(q.toLowerCase());
+
+/* ── charts (hand-built SVG) ─────────────────────────────────────── */
+function Donut({data,size=148,thick=20}){
+  const r=(size-thick)/2,cx=size/2,circ=2*Math.PI*r,total=data.reduce((s,d)=>s+d.value,0)||1;let acc=0;
+  return <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+    <g transform={`rotate(-90 ${cx} ${cx})`}><circle cx={cx} cy={cx} r={r} fill="none" stroke={C.line} strokeWidth={thick}/>
+      {data.map((d,i)=>{const len=d.value/total*circ,off=acc/total*circ;acc+=d.value;return <circle key={i} cx={cx} cy={cx} r={r} fill="none" stroke={d.color} strokeWidth={thick} strokeDasharray={`${len} ${circ-len}`} strokeDashoffset={-off}/>;})}</g>
+    <text x={cx} y={cx-2} textAnchor="middle" fontSize="22" fontWeight="700" fill={C.ink} className="num">{total}</text>
+    <text x={cx} y={cx+15} textAnchor="middle" fontSize="10" fill={C.ink3}>projects</text></svg>;
+}
+function Trend({data}){
+  const W=560,H=210,pl=44,pr=14,pt=14,pb=26;
+  const max=Math.max(...data.flatMap(d=>[d.rev,d.exp]))*1.18;
+  const xs=i=>pl+(i/(data.length-1))*(W-pl-pr);
+  const ys=v=>H-pb-(v/max)*(H-pt-pb);
+  const path=k=>data.map((d,i)=>`${i?"L":"M"}${xs(i).toFixed(1)},${ys(k==="profit"?d.rev-d.exp:d[k]).toFixed(1)}`).join(" ");
+  const grid=[0,.25,.5,.75,1].map(f=>Math.round(max*f));
+  return <div><svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",height:"auto"}}>
+    {grid.map((g,i)=>{const y=ys(g);return <g key={i}><line x1={pl} x2={W-pr} y1={y} y2={y} stroke={C.line}/><text x={pl-8} y={y+3} textAnchor="end" fontSize="9.5" fill={C.ink3} className="num">{g}L</text></g>;})}
+    {data.map((d,i)=><text key={i} x={xs(i)} y={H-8} textAnchor="middle" fontSize="10" fill={C.ink3}>{d.m}</text>)}
+    {[["exp",C.ink3],["profit",C.ok],["rev",C.accent]].map(([k,col])=><path key={k} d={path(k)} fill="none" stroke={col} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"/>)}
+    {data.map((d,i)=><circle key={i} cx={xs(i)} cy={ys(d.rev)} r="2.6" fill={C.accent}/>)}
+  </svg>
+  <div style={{display:"flex",gap:16,justifyContent:"center",marginTop:6}}>{[["Revenue",C.accent],["Expenses",C.ink3],["Profit",C.ok]].map(([l,c])=><span key={l} style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:11.5,color:C.ink2}}><span style={{width:14,height:2.5,background:c,borderRadius:2}}/>{l}</span>)}</div></div>;
+}
+function Spark({pts,color=C.accent}){const W=110,H=30,max=Math.max(...pts),min=Math.min(...pts);
+  const xs=i=>i/(pts.length-1)*W,ys=v=>H-2-((v-min)/((max-min)||1))*(H-4);
+  return <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}><path d={pts.map((p,i)=>`${i?"L":"M"}${xs(i).toFixed(1)},${ys(p).toFixed(1)}`).join(" ")} fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>;}
+
+/* derived finance helpers */
+const projRev=id=>FINANCE0.filter(f=>f.type==="Income"&&f.proj===id).reduce((s,f)=>s+f.amt,0);
+const projExp=id=>FINANCE0.filter(f=>f.type==="Expense"&&f.proj===id).reduce((s,f)=>s+f.amt,0);
+
+/* ── 1. BUSINESS ─────────────────────────────────────────────────── */
+function Business({people}){
+  const rev=FINANCE0.filter(f=>f.type==="Income").reduce((s,f)=>s+f.amt,0);
+  const exp=FINANCE0.filter(f=>f.type==="Expense").reduce((s,f)=>s+f.amt,0);
+  const salesAch=SALES0.reduce((s,x)=>s+x.achieved,0);
+  return <div style={{display:"flex",flexDirection:"column",gap:18}}>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:12}}>
+      <KPI label="Revenue" value={inrC(rev)}/>
+      <KPI label="Expenses" value={inrC(exp)}/>
+      <KPI label="Net income" value={inrC(rev-exp)} note={`${Math.round((rev-exp)/rev*100)}% margin`} tone={C.ok}/>
+      <KPI label="Active projects" value={PROJECTS.filter(p=>p.status==="Active").length}/>
+      <KPI label="Total employees" value={people.filter(p=>p.status==="Active").length}/>
+      <KPI label="Sales achieved" value={inrC(salesAch)}/>
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"1.6fr 1fr",gap:16,alignItems:"start"}}>
+      <Panel title="P&L trend" sub="Revenue · expenses · profit (₹ lakhs / month)"><Trend data={PNL}/></Panel>
+      <Panel title="Project status" sub="Across the portfolio">
+        <div style={{display:"flex",alignItems:"center",gap:18,flexWrap:"wrap"}}>
+          <Donut data={STATUS_DIST}/>
+          <div style={{display:"flex",flexDirection:"column",gap:8,flex:1,minWidth:120}}>{STATUS_DIST.map(s=><div key={s.label} style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:12.5}}>
+            <span style={{display:"inline-flex",alignItems:"center",gap:8,color:C.ink}}><Dot c={s.color}/>{s.label}</span><span className="num" style={{color:C.ink2}}>{s.value}</span></div>)}</div>
+        </div></Panel>
+    </div>
+  </div>;
+}
+
+/* ── 4. FINANCE ──────────────────────────────────────────────────── */
+const INCOME_CATS=["Project Billing","Retainer","Consulting","Other Income"];
+const EXPENSE_CATS=["Salary Cost","Vendor Cost","Software Cost","Marketing","Infrastructure","Other Expense"];
+function Finance({ledger,setLedger,show,q}){
+  const [type,setType]=useState("All");const [proj,setProj]=useState("All projects");const [add,setAdd]=useState(false);
+  const rev=ledger.filter(f=>f.type==="Income").reduce((s,f)=>s+f.amt,0);
+  const exp=ledger.filter(f=>f.type==="Expense").reduce((s,f)=>s+f.amt,0);
+  const list=ledger.filter(f=>(type==="All"||f.type===type)&&(proj==="All projects"||projName(f.proj)===proj)&&matches(q,f.cat,f.desc,projName(f.proj),f.type));
+  return <div style={{display:"flex",flexDirection:"column",gap:16}}>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
+      <KPI label="Total revenue" value={inrC(rev)}/><KPI label="Total expenses" value={inrC(exp)}/><KPI label="Net income" value={inrC(rev-exp)} tone={rev-exp>=0?C.ok:C.err} note={rev-exp>=0?"profit":"loss"}/></div>
+    <Panel title="Finance ledger" sub="Every entry is linked to a project, category and date" pad={false}
+      right={<div style={{display:"flex",gap:8}}><Select value={type} onChange={setType} opts={["All","Income","Expense"]}/><Select value={proj} onChange={setProj} opts={["All projects",...PROJECTS.map(p=>p.name),"Org-wide"]}/>
+        <button className="primary" style={{...btnPrimary,padding:"7px 12px"}} onClick={()=>setAdd(true)}><Icon n="plus" size={14} color="#fff"/> Add entry</button></div>}>
+      <table style={{width:"100%",borderCollapse:"collapse"}}>
+        <thead><tr><th style={th}>Date</th><th style={th}>Type</th><th style={th}>Project</th><th style={th}>Category</th><th style={th}>Description</th><th style={{...th,textAlign:"right"}}>Amount</th></tr></thead>
+        <tbody>{list.map(f=><tr key={f.id} className="row"><td style={td}>{f.date}</td>
+          <td style={td}><Tag s={f.type==="Income"?"Active":"Delayed"} /> <span style={{color:f.type==="Income"?C.ok:C.err,fontSize:12}}>{f.type}</span></td>
+          <td style={{...td,color:C.ink}}>{projName(f.proj)}</td><td style={td}>{f.cat}</td><td style={td}>{f.desc}</td>
+          <td className="num" style={{...td,textAlign:"right",color:f.type==="Income"?C.ok:C.ink,fontWeight:500}}>{f.type==="Expense"?"−":""}{inr(f.amt)}</td></tr>)}</tbody></table>
+    </Panel>
+    {add&&<AddFinance onClose={()=>setAdd(false)} onAdd={e=>{setLedger([{id:"f"+Date.now(),...e},...ledger]);setAdd(false);show("Entry added");}}/>}
+  </div>;
+}
+function AddFinance({onClose,onAdd}){
+  const [type,setType]=useState("Income");const [proj,setProj]=useState("ipo");const [cat,setCat]=useState("Project Billing");
+  const [date,setDate]=useState("");const [amt,setAmt]=useState("");const [desc,setDesc]=useState("");
+  const cats=type==="Income"?INCOME_CATS:EXPENSE_CATS;
+  return <Modal title="Add finance entry" onClose={onClose}
+    footer={<><button className="demo" style={btnGhost} onClick={onClose}>Cancel</button>
+      <button className="primary" style={btnPrimary} onClick={()=>{if(!amt){return;}onAdd({type,proj:proj==="org"?null:proj,cat,date:date||"Today",amt:+amt,desc:desc||"—"});}}>Add entry</button></>}>
+    <div style={{display:"flex",gap:12}}><div style={{flex:1}}><Field label="Type"><select style={inputStyle} value={type} onChange={e=>{setType(e.target.value);setCat(e.target.value==="Income"?INCOME_CATS[0]:EXPENSE_CATS[0]);}}>{["Income","Expense"].map(x=><option key={x}>{x}</option>)}</select></Field></div>
+      <div style={{flex:1}}><Field label="Category"><select style={inputStyle} value={cat} onChange={e=>setCat(e.target.value)}>{cats.map(x=><option key={x}>{x}</option>)}</select></Field></div></div>
+    <Field label="Project"><select style={inputStyle} value={proj} onChange={e=>setProj(e.target.value)}>{PROJECTS.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}<option value="org">Org-wide</option></select></Field>
+    <div style={{display:"flex",gap:12}}><div style={{flex:1}}><Field label="Date"><input style={inputStyle} value={date} onChange={e=>setDate(e.target.value)} placeholder="15 Jun 2026"/></Field></div>
+      <div style={{flex:1}}><Field label="Amount (₹)"><input className="num" style={inputStyle} type="number" value={amt} onChange={e=>setAmt(e.target.value)} placeholder="500000"/></Field></div></div>
+    <Field label="Description"><input style={inputStyle} value={desc} onChange={e=>setDesc(e.target.value)}/></Field>
+  </Modal>;
+}
+
+/* ── 5. PROJECTS (financial performance) ─────────────────────────── */
+function Projects({ledger,people,q}){
+  const [open,setOpen]=useState(null);const [tab,setTab]=useState("Overview");
+  const rev=id=>ledger.filter(f=>f.type==="Income"&&f.proj===id).reduce((s,f)=>s+f.amt,0);
+  const exp=id=>ledger.filter(f=>f.type==="Expense"&&f.proj===id).reduce((s,f)=>s+f.amt,0);
+  const list=PROJECTS.filter(p=>matches(q,p.name,p.client,p.pm,p.sales));
+  return <Panel pad={false} title="Project overview" sub="Delivery status and financial performance">
+    <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:920}}>
+      <thead><tr><th style={th}>Project</th><th style={th}>Client</th><th style={th}>PM</th><th style={th}>Status</th><th style={{...th,textAlign:"right"}}>Resources</th><th style={{...th,width:120}}>Completion</th><th style={{...th,textAlign:"right"}}>Revenue</th><th style={{...th,textAlign:"right"}}>Profit</th><th style={{...th,textAlign:"right"}}></th></tr></thead>
+      <tbody>{list.map(p=>{const r=rev(p.id),e=exp(p.id),pf=r-e,comp=COMPLETION[p.id]||0,roster=ROSTER[p.id]||[],exp_=open===p.id;return <React.Fragment key={p.id}>
+        <tr className="row"><td style={{...td,color:C.ink,fontWeight:500}}>{p.name}<div style={{fontSize:11,color:C.ink3,fontWeight:400}}>Sales · {p.sales}</div></td><td style={td}>{p.client}</td><td style={td}>{p.pm}</td><td style={td}><Tag s={p.status} strong/></td>
+          <td className="num" style={{...td,textAlign:"right"}}>{roster.length||p.resources}</td>
+          <td style={td}><div style={{display:"flex",alignItems:"center",gap:8}}><div style={{height:3,background:C.line,borderRadius:99,overflow:"hidden",flex:1}}><div style={{height:"100%",width:`${comp}%`,background:C.accent}}/></div><span className="num" style={{fontSize:11.5,color:C.ink2,width:30,textAlign:"right"}}>{comp}%</span></div></td>
+          <td className="num" style={{...td,textAlign:"right"}}>{inrC(r)}</td>
+          <td className="num" style={{...td,textAlign:"right",color:pf>=0?C.ok:C.err,fontWeight:600}}>{inrC(pf)}</td>
+          <td style={{...td,textAlign:"right"}}><button className="lnk" onClick={()=>{setOpen(exp_?null:p.id);setTab("Overview");}} style={{border:"none",background:"none",color:C.ink2,fontSize:12.5,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:4}}>Detail <Icon n={exp_?"down":"right"} size={13} color={C.ink3}/></button></td></tr>
+        {exp_&&<tr><td colSpan={9} style={{padding:0,borderBottom:`1px solid ${C.line}`,background:"#FBFBF9"}}><div style={{padding:"14px 16px"}}>
+          <div style={{display:"flex",gap:4,marginBottom:12,borderBottom:`1px solid ${C.line}`}}>{["Overview","Resources","Finance"].map(t=><button key={t} className="tab" onClick={()=>setTab(t)} style={{border:"none",background:"none",cursor:"pointer",padding:"7px 11px",fontSize:12.5,fontWeight:tab===t?600:500,color:tab===t?C.ink:C.ink3,borderBottom:`2px solid ${tab===t?C.ink:"transparent"}`,marginBottom:-1}}>{t}</button>)}</div>
+          {tab==="Overview"&&<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:14}}>{[["Client",p.client],["PM",p.pm],["Sales owner",p.sales],["Status",p.status],["Start",p.start],["End",p.end],["Completion",comp+"%"],["Net profit",inrC(pf)]].map(([k,v])=><div key={k}><div style={{fontSize:10.5,color:C.ink3,textTransform:"uppercase",letterSpacing:".04em"}}>{k}</div><div style={{fontSize:13.5,color:C.ink,marginTop:3}}>{v}</div></div>)}</div>}
+          {tab==="Resources"&&(roster.length===0?<div style={{fontSize:13,color:C.ink3}}>No resources allocated.</div>:
+            <table style={{width:"100%",borderCollapse:"collapse"}}><thead><tr><th style={th}>Resource</th><th style={th}>Designation</th><th style={th}>Timesheet</th></tr></thead>
+              <tbody>{roster.map(id=><tr key={id} className="row"><td style={{...td,color:C.ink}}>{empName(id,people)}</td><td style={td}>{empRole(id,people)}</td><td style={td}>{TS[id]?<Tag s={TS[id]} strong/>:<span style={{fontSize:12,color:C.ink3}}>—</span>}</td></tr>)}</tbody></table>)}
+          {tab==="Finance"&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+            <div><div style={{fontSize:11,color:C.ink3,textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>Revenue entries</div>
+              {ledger.filter(f=>f.type==="Income"&&f.proj===p.id).map(f=><div key={f.id} style={{display:"flex",justifyContent:"space-between",fontSize:12.5,padding:"5px 0",borderBottom:`1px solid ${C.line}`}}><span style={{color:C.ink}}>{f.cat}<span style={{color:C.ink3}}> · {f.date}</span></span><span className="num" style={{color:C.ok}}>{inr(f.amt)}</span></div>)}
+              {r===0&&<div style={{fontSize:12,color:C.ink3}}>No revenue recorded.</div>}</div>
+            <div><div style={{fontSize:11,color:C.ink3,textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>Expense entries</div>
+              {ledger.filter(f=>f.type==="Expense"&&f.proj===p.id).map(f=><div key={f.id} style={{display:"flex",justifyContent:"space-between",fontSize:12.5,padding:"5px 0",borderBottom:`1px solid ${C.line}`}}><span style={{color:C.ink}}>{f.cat}<span style={{color:C.ink3}}> · {f.date}</span></span><span className="num" style={{color:C.ink2}}>−{inr(f.amt)}</span></div>)}
+              {e===0&&<div style={{fontSize:12,color:C.ink3}}>No expenses recorded.</div>}</div>
+            <div style={{gridColumn:"1 / -1",display:"flex",gap:24,paddingTop:10,borderTop:`1px solid ${C.lineStrong}`}}>
+              {[["Total revenue",inr(r),C.ink],["Total expense",inr(e),C.ink],["Net profit",inr(pf),pf>=0?C.ok:C.err]].map(([k,v,col])=><div key={k}><div style={{fontSize:10.5,color:C.ink3,textTransform:"uppercase"}}>{k}</div><div className="num" style={{fontSize:15,color:col,fontWeight:600,marginTop:2}}>{v}</div></div>)}
+            </div></div>}
+        </div></td></tr>}
+      </React.Fragment>;})}</tbody></table></div>
+  </Panel>;
+}
+
+/* ── PM OVERSIGHT ────────────────────────────────────────────────── */
+function PMs({people,q}){
+  const [open,setOpen]=useState(null);
+  return <div style={{display:"flex",flexDirection:"column",gap:14}}>
+    {PMS.filter(m=>matches(q,m.name)).map(m=>{const ps=PROJECTS.filter(p=>m.projects.includes(p.id));
+      const resIds=Array.from(new Set(ps.flatMap(p=>ROSTER[p.id]||[])));
+      const pending=resIds.filter(id=>["Submitted","Pending","Late"].includes(TS[id])).length;
+      const approved=resIds.filter(id=>TS[id]==="Approved").length;const exp=open===m.name;
+      return <div key={m.name} style={{border:`1px solid ${C.line}`,borderRadius:8,background:C.surface}}>
+        <button onClick={()=>setOpen(exp?null:m.name)} style={{width:"100%",textAlign:"left",border:"none",background:"none",cursor:"pointer",padding:"15px 16px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{display:"flex",alignItems:"center",gap:11}}><span style={{width:34,height:34,borderRadius:99,border:`1px solid ${C.line}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:600,color:C.ink}}>{m.name.split(" ").map(n=>n[0]).join("")}</span>
+              <div><div style={{fontSize:14,fontWeight:600,color:C.ink}}>{m.name}</div><div style={{fontSize:12,color:C.ink3}}>Project Manager</div></div></div>
+            <Icon n={exp?"down":"right"} size={15} color={C.ink3}/></div>
+          <div style={{display:"flex",gap:24,marginTop:14}}>{[["Projects",m.projects.length],["Resources",resIds.length],["Pending",pending],["Approved",approved],["Own hours",`${m.logged}h`]].map(([k,v])=><div key={k}><div style={{fontSize:10.5,color:C.ink3,textTransform:"uppercase",letterSpacing:".04em"}}>{k}</div><div className="num" style={{fontSize:15,color:k==="Pending"&&v>0?C.accent:C.ink,marginTop:2}}>{v}</div></div>)}</div></button>
+        {exp&&<div style={{borderTop:`1px solid ${C.line}`,padding:16}}>
+          <div style={{fontSize:11,color:C.ink3,textTransform:"uppercase",letterSpacing:".05em",marginBottom:8}}>Projects managed</div>
+          <table style={{width:"100%",borderCollapse:"collapse",marginBottom:16}}><thead><tr><th style={th}>Project</th><th style={th}>Status</th><th style={{...th,textAlign:"right"}}>Completion</th></tr></thead>
+            <tbody>{ps.map(p=><tr key={p.id} className="row"><td style={{...td,color:C.ink}}>{p.name}</td><td style={td}><Tag s={p.status} strong/></td><td className="num" style={{...td,textAlign:"right"}}>{COMPLETION[p.id]||0}%</td></tr>)}</tbody></table>
+          <div style={{fontSize:11,color:C.ink3,textTransform:"uppercase",letterSpacing:".05em",marginBottom:8}}>Resources & timesheet status</div>
+          <table style={{width:"100%",borderCollapse:"collapse"}}><tbody>{resIds.map(id=><tr key={id} className="row"><td style={{...td,color:C.ink}}>{empName(id,people)}</td><td style={td}>{empRole(id,people)}</td><td style={{...td,textAlign:"right"}}>{TS[id]?<Tag s={TS[id]} strong/>:<span style={{fontSize:12,color:C.ink3}}>—</span>}</td></tr>)}</tbody></table>
+        </div>}
+      </div>;})}
+  </div>;
+}
+
+/* ── 2+6. PEOPLE (user management + directory) ───────────────────── */
+function People({people,setPeople,show,q}){
+  const [dept,setDept]=useState("All departments");const [role,setRole]=useState("All roles");const [stat,setStat]=useState("All statuses");const [av,setAv]=useState("All availability");
+  const [add,setAdd]=useState(false);const [edit,setEdit]=useState(null);const [view,setView]=useState(null);
+  const [exportEmployee,setExportEmployee]=useState(null); // 'all' | employee_object | null
+  const [exportMonth,setExportMonth]=useState("June 2026");
+
+  const handleExportTimesheets = () => {
+    const monthMap = {
+      "January": 0, "February": 1, "March": 2, "April": 3, "May": 4, "June": 5,
+      "July": 6, "August": 7, "September": 8, "October": 9, "November": 10, "December": 11
+    };
+    const [monthStr, yearStr] = exportMonth.split(" ");
+    const targetMonth = monthMap[monthStr];
+    const targetYear = parseInt(yearStr, 10);
+
+    const getEmpName = (empId) => (people.find(p => p.id === empId) || {}).name || empId;
+    
+    const csvRows = [
+      ["Employee ID", "Employee Name", "Project Name", "Date", "Hours Logged", "Work Description", "Timesheet Status"]
+    ];
+
+    const parseLogDate = (dateStr) => {
+      const parts = dateStr.split(" ");
+      const day = parseInt(parts[0], 10);
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      const mIdx = months.indexOf(parts[1]);
+      return new Date(2026, mIdx >= 0 ? mIdx : 5, day);
+    };
+
+    Object.keys(WORKLOG).forEach(empId => {
+      if (exportEmployee !== "all" && empId !== exportEmployee.id) return;
+      const logs = WORKLOG[empId] || [];
+      
+      logs.forEach(logEntry => {
+        const entryDate = parseLogDate(logEntry.date);
+        
+        if (entryDate.getMonth() === targetMonth && entryDate.getFullYear() === targetYear) {
+          const formattedDate = entryDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+          const projName = (PROJECTS.find(p => p.id === logEntry.proj) || {}).name || logEntry.proj;
+          csvRows.push([
+            empId,
+            getEmpName(empId),
+            projName,
+            formattedDate,
+            logEntry.h.toString(),
+            (logEntry.d || "").replace(/"/g, '""'),
+            TS[empId] || "Submitted"
+          ]);
+        }
+      });
+    });
+
+    if (csvRows.length === 1) {
+      const displayTargetName = exportEmployee === "all" ? "any resources" : exportEmployee.name;
+      show(`No timesheet entries found for ${displayTargetName} in ${exportMonth}`);
+      return;
+    }
+
+    const csvContent = "\uFEFF" + csvRows.map(e => e.map(val => `"${val}"`).join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    const filename = exportEmployee === "all"
+      ? `timesheets_export_${exportMonth.replace(" ", "_").toLowerCase()}.csv`
+      : `timesheet_${exportEmployee.id}_${exportMonth.replace(" ", "_").toLowerCase()}.csv`;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    const displayTargetNameMsg = exportEmployee === "all" ? "All active resources" : exportEmployee.name;
+    show(`Timesheets exported for ${displayTargetNameMsg} (${exportMonth})`);
+    setExportEmployee(null);
+  };
+
+  const depts=["All departments",...Array.from(new Set(people.map(p=>p.dept)))];
+  const list=people.filter(p=>(dept==="All departments"||p.dept===dept)&&(role==="All roles"||p.role===role)&&(stat==="All statuses"||p.status===stat)&&(av==="All availability"||avail(p.util)===av)&&matches(q,p.name,p.id,p.designation,p.dept,p.project));
+  return <>
+    <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:14,alignItems:"center"}}>
+      <Select value={dept} onChange={setDept} opts={depts}/><Select value={role} onChange={setRole} opts={["All roles",...ROLES]}/>
+      <Select value={stat} onChange={setStat} opts={["All statuses","Active","Inactive"]}/>
+      <Select value={av} onChange={setAv} opts={["All availability","Available","Partially Allocated","Fully Allocated","Overallocated"]}/>
+      <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:12,color:C.ink3}}>{list.length} of {people.length}</span>
+        <button className="ghost" style={{...btnGhost,padding:"7px 12px"}} onClick={()=>setExportEmployee("all")}><Icon n="download" size={14} color={C.ink2}/> Export Timesheets</button>
+        <button className="primary" style={{...btnPrimary,padding:"7px 12px"}} onClick={()=>setAdd(true)}><Icon n="plus" size={14} color="#fff"/> Add employee</button></div></div>
+    <Panel pad={false}><div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",minWidth:900}}>
+      <thead><tr><th style={th}>Employee</th><th style={th}>Dept</th><th style={th}>Designation</th><th style={th}>Role</th><th style={th}>Current project</th><th style={th}>Availability</th><th style={th}>Timesheet</th><th style={th}>Manager</th><th style={th}>Status</th><th style={{...th,textAlign:"right"}}></th></tr></thead>
+      <tbody>{list.map(p=><tr key={p.id} className="row" style={{opacity:p.status==="Inactive"?.55:1}}>
+        <td style={{...td,color:C.ink,fontWeight:500}}>{p.name}<div style={{fontSize:11,color:C.ink3,fontWeight:400}} className="num">{p.id} · joined {p.joined}</div></td>
+        <td style={td}>{p.dept}</td><td style={td}>{p.designation}</td><td style={td}><Tag s={p.role} strong/></td>
+        <td style={td}>{p.project}<div style={{fontSize:11,color:C.ink3}}>last · {p.last}</div></td>
+        <td style={td}>{p.role==="Resource"?<span style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12,color:availTone(p.util)}}><Dot c={availTone(p.util)}/>{avail(p.util)} <span className="num" style={{color:C.ink3}}>· {p.util}%</span></span>:<span style={{fontSize:12,color:C.ink3}}>—</span>}</td>
+        <td style={td}>{p.role==="Resource"&&TS[p.id]?<Tag s={TS[p.id]} strong/>:<span style={{fontSize:12,color:C.ink3}}>—</span>}</td>
+        <td style={td}>{p.manager}</td>
+        <td style={td}><Tag s={p.status}/></td>
+        <td style={{...td,textAlign:"right",whiteSpace:"nowrap"}}>
+          <button title="View" className="ghost" onClick={()=>setView(p)} style={{border:`1px solid ${C.line}`,background:C.surface,borderRadius:6,padding:6,cursor:"pointer",marginRight:6}}><Icon n="eye" size={13} color={C.ink2}/></button>
+          <button title="Export" className="ghost" onClick={()=>setExportEmployee(p)} style={{border:`1px solid ${C.line}`,background:C.surface,borderRadius:6,padding:6,cursor:"pointer",marginRight:6}}><Icon n="download" size={13} color={C.ink2}/></button>
+          <button title="Edit" className="ghost" onClick={()=>setEdit(p)} style={{border:`1px solid ${C.line}`,background:C.surface,borderRadius:6,padding:6,cursor:"pointer",marginRight:6}}><Icon n="edit" size={13} color={C.ink2}/></button>
+          <button title={p.status==="Active"?"Deactivate":"Reactivate"} className="ghost" onClick={()=>{setPeople(people.map(x=>x.id===p.id?{...x,status:x.status==="Active"?"Inactive":"Active"}:x));show(p.status==="Active"?"Employee deactivated":"Employee reactivated");}} style={{border:`1px solid ${C.line}`,background:C.surface,borderRadius:6,padding:6,cursor:"pointer"}}><Icon n="ban" size={13} color={p.status==="Active"?C.err:C.ok}/></button></td></tr>)}</tbody></table></div></Panel>
+    {add&&<EmployeeForm onClose={()=>setAdd(false)} onSave={e=>{setPeople([{...e,project:"—",last:"—",util:0},...people]);setAdd(false);show("Employee added");}}/>}
+    {edit&&<EmployeeForm emp={edit} onClose={()=>setEdit(null)} onSave={e=>{setPeople(people.map(x=>x.id===edit.id?{...x,...e}:x));setEdit(null);show("Employee updated");}}/>}
+    {view&&<PersonDetail p={view} onClose={()=>setView(null)} onExport={(emp)=>setExportEmployee(emp)}/>}
+    {exportEmployee&&<Modal title={exportEmployee === "all" ? "Export resource timesheets" : `Export timesheet: ${exportEmployee.name}`} onClose={()=>setExportEmployee(null)}
+      footer={<><button className="demo" style={btnGhost} onClick={()=>setExportEmployee(null)}>Cancel</button>
+        <button className="primary" style={btnPrimary} onClick={handleExportTimesheets}><Icon n="download" size={14} color="#fff"/> Export CSV</button></>}>
+      <div style={{fontSize:13,color:C.ink,marginBottom:14}}>Select the month to export timesheet logs for {exportEmployee === "all" ? "all active resources" : exportEmployee.name}:</div>
+      <div style={{marginBottom:12}}><div style={{fontSize:12,color:C.ink2,marginBottom:6}}>Select Month</div>
+        <select style={inputStyle} value={exportMonth} onChange={e=>setExportMonth(e.target.value)}>{["June 2026","July 2026","August 2026"].map(m=><option key={m} value={m}>{m}</option>)}</select></div>
+    </Modal>}
+  </>;
+}
+function PersonDetail({p,onClose,onExport}){
+  const log=WORKLOG[p.id]||[];const isRes=p.role==="Resource";
+  return <><div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(20,20,25,.18)",zIndex:80}}/>
+    <aside style={{position:"fixed",top:0,right:0,height:"100%",width:440,maxWidth:"94%",background:C.surface,borderLeft:`1px solid ${C.line}`,zIndex:90,display:"flex",flexDirection:"column"}}>
+      <div style={{padding:"16px 22px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div><div style={{fontSize:14,fontWeight:600,color:C.ink}}>{p.name}</div><div style={{fontSize:11.5,color:C.ink3}} className="num">{p.id}</div></div>
+        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+          <button className="ghost" onClick={()=>onExport(p)} title="Export Timesheet" style={{border:"none",background:"none",borderRadius:6,padding:5,cursor:"pointer",display:"flex"}}><Icon n="download" size={15} color={C.ink2}/></button>
+          <button className="ghost" onClick={onClose} style={{border:"none",background:"none",borderRadius:6,padding:5,cursor:"pointer",display:"flex"}}><Icon n="x" size={16} color={C.ink2}/></button>
+        </div></div>
+      <div style={{padding:22,overflowY:"auto",flex:1}}>
+        <div style={{fontSize:11,color:C.ink3,textTransform:"uppercase",letterSpacing:".05em",marginBottom:8}}>Overview</div>
+        <dl style={{margin:"0 0 20px"}}>{[["Role",p.role],["Department",p.dept],["Designation",p.designation],["Manager",p.manager],["Current project",p.project],["Last project",p.last],["Joined",p.joined],["Status",p.status]].map(([k,v])=>
+          <div key={k} style={{display:"flex",justifyContent:"space-between",gap:16,padding:"8px 0",borderBottom:`1px solid ${C.line}`,fontSize:13}}><dt style={{color:C.ink3}}>{k}</dt><dd style={{margin:0,color:C.ink,textAlign:"right"}}>{v}</dd></div>)}</dl>
+        {isRes&&<>
+          <div style={{display:"flex",gap:10,marginBottom:20}}>
+            <div style={{flex:1,border:`1px solid ${C.line}`,borderRadius:8,padding:"10px 12px"}}><div style={{fontSize:10.5,color:C.ink3,textTransform:"uppercase",letterSpacing:".04em"}}>Availability</div><div style={{fontSize:13.5,color:availTone(p.util),marginTop:3,display:"flex",alignItems:"center",gap:6}}><Dot c={availTone(p.util)}/>{avail(p.util)}</div></div>
+            <div style={{flex:1,border:`1px solid ${C.line}`,borderRadius:8,padding:"10px 12px"}}><div style={{fontSize:10.5,color:C.ink3,textTransform:"uppercase",letterSpacing:".04em"}}>This week</div><div style={{marginTop:5}}>{TS[p.id]?<Tag s={TS[p.id]} strong/>:<span style={{fontSize:12,color:C.ink3}}>—</span>}</div></div></div>
+          <div style={{fontSize:11,color:C.ink3,textTransform:"uppercase",letterSpacing:".05em",marginBottom:8}}>Work log · audit trail</div>
+          {log.length===0?<Empty msg="No work entries logged this week."/>:
+            <div style={{border:`1px solid ${C.line}`,borderRadius:8,overflow:"hidden"}}>{log.map((e,i)=><div key={i} style={{padding:"11px 13px",borderBottom:i<log.length-1?`1px solid ${C.line}`:"none"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",gap:10,marginBottom:3}}><span style={{fontSize:12.5,fontWeight:600,color:C.ink}}>{projName(e.proj)}</span><span className="num" style={{fontSize:12,color:C.ink2}}>{e.date} · {e.h}h</span></div>
+              <div style={{fontSize:12.5,color:C.ink2,lineHeight:1.5}}>{e.d}</div></div>)}</div>}
+        </>}
+        {!isRes&&<div style={{fontSize:12.5,color:C.ink3}}>Timesheet monitoring applies to delivery resources.</div>}
+      </div>
+    </aside></>;
+}
+function EmployeeForm({emp,onClose,onSave}){
+  const [f,setF]=useState(emp||{name:"",id:"EMP-"+(1016+Math.floor(Math.random()*900)),email:"",dept:"Product Design",designation:"",joined:"",status:"Active",role:"Resource",manager:""});
+  const set=(k,v)=>setF(p=>({...p,[k]:v}));
+  return <Modal title={emp?"Edit employee":"Add employee"} onClose={onClose} w={460}
+    footer={<><button className="demo" style={btnGhost} onClick={onClose}>Cancel</button>
+      <button className="primary" style={btnPrimary} onClick={()=>{if(!f.name.trim())return;onSave(f);}}>{emp?"Save changes":"Add employee"}</button></>}>
+    <div style={{fontSize:11,color:C.ink3,textTransform:"uppercase",letterSpacing:".05em",marginBottom:10}}>Basic information</div>
+    <div style={{display:"flex",gap:12}}><div style={{flex:1}}><Field label="Employee name"><input style={inputStyle} value={f.name} onChange={e=>set("name",e.target.value)}/></Field></div>
+      <div style={{width:130}}><Field label="Employee ID"><input className="num" style={inputStyle} value={f.id} onChange={e=>set("id",e.target.value)}/></Field></div></div>
+    <Field label="Email"><input style={inputStyle} value={f.email||""} onChange={e=>set("email",e.target.value)} placeholder="name@pulseorganizer.io"/></Field>
+    <div style={{display:"flex",gap:12}}><div style={{flex:1}}><Field label="Department"><select style={inputStyle} value={f.dept} onChange={e=>set("dept",e.target.value)}>{["Product Design","Engineering","Quality","Delivery","Sales","Operations","Executive"].map(x=><option key={x}>{x}</option>)}</select></Field></div>
+      <div style={{flex:1}}><Field label="Designation"><input style={inputStyle} value={f.designation} onChange={e=>set("designation",e.target.value)}/></Field></div></div>
+    <div style={{display:"flex",gap:12}}><div style={{flex:1}}><Field label="Joining date"><input style={inputStyle} value={f.joined} onChange={e=>set("joined",e.target.value)} placeholder="15 Jun 2026"/></Field></div>
+      <div style={{flex:1}}><Field label="Reporting manager"><input style={inputStyle} value={f.manager} onChange={e=>set("manager",e.target.value)}/></Field></div></div>
+    <div style={{display:"flex",gap:12}}><div style={{flex:1}}><Field label="Status"><select style={inputStyle} value={f.status} onChange={e=>set("status",e.target.value)}>{["Active","Inactive"].map(x=><option key={x}>{x}</option>)}</select></Field></div>
+      <div style={{flex:1}}><Field label="Platform role"><select style={inputStyle} value={f.role} onChange={e=>set("role",e.target.value)}>{ROLES.map(x=><option key={x}>{x}</option>)}</select></Field></div></div>
+  </Modal>;
+}
+
+/* ── 3. VENDOR RESOURCES (OUTSOURCED) ───────────────────────────────── */
+function Outsourced({ q }) {
+  const list = OUTSOURCED0.filter(o => !q || o.name.toLowerCase().includes(q.toLowerCase()) || o.profile.toLowerCase().includes(q.toLowerCase()) || o.source.toLowerCase().includes(q.toLowerCase()));
+  return (
+    <Panel title="Vendor Resources" sub="Manage external agency resource allocations and margins" pad={false}>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead>
+          <tr>
+            <th style={th}>Resource</th>
+            <th style={th}>Profile</th>
+            <th style={th}>Source</th>
+            <th style={th}>Start Date</th>
+            <th style={th}>Allocation</th>
+            <th style={{ ...th, textAlign: "right" }}>Cost (Input)</th>
+            <th style={{ ...th, textAlign: "right" }}>Billing</th>
+            <th style={{ ...th, textAlign: "right" }}>Margin</th>
+            <th style={th}>Project</th>
+            <th style={th}>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {list.map(o => (
+            <tr key={o.id} className="row">
+              <td style={{ ...td, color: C.ink, fontWeight: 500 }}>{o.name}</td>
+              <td style={td}>{o.profile}</td>
+              <td style={td}>{o.source}</td>
+              <td style={td}>{o.start}</td>
+              <td style={td}>{o.allocation}</td>
+              <td className="num" style={{ ...td, textAlign: "right" }}>{o.input}</td>
+              <td className="num" style={{ ...td, textAlign: "right" }}>{o.billing}</td>
+              <td className="num" style={{ ...td, textAlign: "right", color: C.ok, fontWeight: 500 }}>{o.margin}</td>
+              <td style={td}>{projName(o.projId)}</td>
+              <td style={td}><Tag s={o.status} strong /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Panel>
+  );
+}
+
+/* ── 3. ACCESS CONTROL (Detailed Roles & Access) ────────────────────── */
+function Access({ show }) {
+  const [rolePerms, setRolePerms] = useState(loadRolePermissions);
+  const [selectedRole, setSelectedRole] = useState("finance");
+  const [collapsedSections, setCollapsedSections] = useState({});
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [tempName, setTempName] = useState("");
+
+  const rolesList = ["finance", "hr", "project manager", "sales", "resources"];
+  const activePerms = rolePerms[selectedRole] || {};
+
+  const handleToggle = (permKey) => {
+    setRolePerms(prev => {
+      const next = {
+        ...prev,
+        [selectedRole]: {
+          ...prev[selectedRole],
+          [permKey]: !prev[selectedRole]?.[permKey]
+        }
+      };
+      return next;
+    });
+  };
+
+  const handleSectionAll = (sectionKey, value) => {
+    const section = ACCESS_SECTIONS.find(s => s.key === sectionKey);
+    if (!section) return;
+
+    setRolePerms(prev => {
+      const updatedRolePerms = { ...prev[selectedRole] };
+      section.permissions.forEach(p => {
+        updatedRolePerms[p.key] = value;
+      });
+
+      return {
+        ...prev,
+        [selectedRole]: updatedRolePerms
+      };
+    });
+  };
+
+  const handleSave = () => {
+    saveRolePermissions(rolePerms);
+    window.dispatchEvent(new Event("perms_changed"));
+    show("Role permissions saved successfully!");
+  };
+
+  const handleCancel = () => {
+    setRolePerms(loadRolePermissions());
+    show("Changes discarded");
+  };
+
+  const handleEditName = () => {
+    setTempName(activePerms.name || selectedRole.toUpperCase());
+    setIsEditingName(true);
+  };
+
+  const handleSaveName = () => {
+    if (!tempName.trim()) return;
+    setRolePerms(prev => ({
+      ...prev,
+      [selectedRole]: {
+        ...prev[selectedRole],
+        name: tempName.trim()
+      }
+    }));
+    setIsEditingName(false);
+  };
+
+  const handleCancelEditName = () => {
+    setIsEditingName(false);
+  };
+
+  const toggleSectionCollapse = (sectionKey) => {
+    setCollapsedSections(prev => ({
+      ...prev,
+      [sectionKey]: !prev[sectionKey]
+    }));
+  };
+
+  return (
+    <div style={{ display: "flex", gap: 24, minHeight: 500, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 10, padding: 24 }} className="fade-in">
+      {/* Left panel: List of roles */}
+      <div style={{ width: 220, borderRight: `1px solid ${C.line}`, paddingRight: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: C.ink3, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Roles</div>
+        {rolesList.map(roleKey => {
+          const roleData = rolePerms[roleKey] || DEFAULT_ROLE_PERMS[roleKey] || {};
+          const active = selectedRole === roleKey;
+          return (
+            <button
+              key={roleKey}
+              onClick={() => {
+                setSelectedRole(roleKey);
+                setIsEditingName(false);
+              }}
+              style={{
+                border: "none",
+                background: active ? C.accentSoft : "transparent",
+                color: active ? C.accent : C.ink2,
+                fontWeight: active ? 600 : 500,
+                textAlign: "left",
+                padding: "10px 14px",
+                fontSize: 13.5,
+                cursor: "pointer",
+                borderRadius: 6,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                outline: "none"
+              }}
+            >
+              <span>{roleData.name || roleKey.toUpperCase()}</span>
+              <Icon n="right" size={12} color={active ? C.accent : C.ink3} />
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Right panel: Permissions Editor */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 20 }}>
+        {/* Role Details */}
+        <div style={{ borderBottom: `1px solid ${C.line}`, paddingBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
+            {isEditingName ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="text"
+                  value={tempName}
+                  onChange={e => setTempName(e.target.value)}
+                  style={{
+                    border: `1px solid ${C.lineStrong}`,
+                    borderRadius: 6,
+                    padding: "4px 8px",
+                    fontSize: 18,
+                    fontWeight: 700,
+                    color: C.ink,
+                    outline: "none",
+                    background: C.paper
+                  }}
+                />
+                <button
+                  onClick={handleSaveName}
+                  style={{
+                    border: "none",
+                    background: C.ok,
+                    color: "#fff",
+                    borderRadius: 6,
+                    padding: "4px 10px",
+                    cursor: "pointer",
+                    fontSize: 12,
+                    fontWeight: 600
+                  }}
+                >
+                  Save
+                </button>
+                <button
+                  onClick={handleCancelEditName}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    color: C.ink2,
+                    cursor: "pointer",
+                    fontSize: 12
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <h3 style={{ fontSize: 18, fontWeight: 700, color: C.ink, margin: 0 }}>
+                  {activePerms.name || selectedRole.toUpperCase()}
+                </h3>
+                <button
+                  onClick={handleEditName}
+                  style={{
+                    border: "none",
+                    background: "none",
+                    color: C.accent,
+                    cursor: "pointer",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    padding: "2px 6px",
+                    borderRadius: 4,
+                    textTransform: "uppercase"
+                  }}
+                >
+                  Edit
+                </button>
+              </div>
+            )}
+          </div>
+          <p style={{ fontSize: 13, color: C.ink2, margin: 0 }}>
+            {activePerms.desc || DEFAULT_ROLE_PERMS[selectedRole]?.desc || ""}
+          </p>
+        </div>
+
+        {/* Access Management sections */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: C.ink3, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            Access Management
+          </div>
+
+          {ACCESS_SECTIONS.map(section => {
+            const isCollapsed = !!collapsedSections[section.key];
+            return (
+              <div
+                key={section.key}
+                style={{
+                  border: `1px solid ${C.line}`,
+                  borderRadius: 8,
+                  overflow: "hidden"
+                }}
+              >
+                {/* Section Header */}
+                <div
+                  style={{
+                    background: C.paper,
+                    padding: "10px 14px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    borderBottom: isCollapsed ? "none" : `1px solid ${C.line}`
+                  }}
+                >
+                  <div
+                    onClick={() => toggleSectionCollapse(section.key)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      cursor: "pointer",
+                      userSelect: "none"
+                    }}
+                  >
+                    <Icon n={isCollapsed ? "right" : "down"} size={14} color={C.ink2} />
+                    <span style={{ fontSize: 13.5, fontWeight: 600, color: C.ink }}>
+                      {section.label}
+                    </span>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 12 }}>
+                    <button
+                      onClick={() => handleSectionAll(section.key, true)}
+                      style={{
+                        border: "none",
+                        background: "none",
+                        color: C.accent,
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        padding: 0
+                      }}
+                    >
+                      Full Access
+                    </button>
+                    <button
+                      onClick={() => handleSectionAll(section.key, false)}
+                      style={{
+                        border: "none",
+                        background: "none",
+                        color: C.err,
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        padding: 0
+                      }}
+                    >
+                      No Access
+                    </button>
+                  </div>
+                </div>
+
+                {/* Section Body (Grid of checkboxes) */}
+                {!isCollapsed && (
+                  <div
+                    style={{
+                      padding: 16,
+                      background: C.surface,
+                      display: "grid",
+                      gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+                      gap: 12
+                    }}
+                  >
+                    {section.permissions.map(p => {
+                      const checked = !!activePerms[p.key];
+                      return (
+                        <label
+                          key={p.key}
+                          style={{
+                            display: "flex",
+                            alignItems: "flex-start",
+                            gap: 8,
+                            cursor: "pointer",
+                            fontSize: 12.5,
+                            color: C.ink2,
+                            userSelect: "none"
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => handleToggle(p.key)}
+                            style={{
+                              marginTop: 2,
+                              cursor: "pointer"
+                            }}
+                          />
+                          <span>{p.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer controls */}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, borderTop: `1px solid ${C.line}`, paddingTop: 16, marginTop: 12 }}>
+          <button
+            onClick={handleCancel}
+            style={{
+              border: `1px solid ${C.lineStrong}`,
+              background: "transparent",
+              borderRadius: 6,
+              padding: "8px 16px",
+              cursor: "pointer",
+              fontSize: 13,
+              fontWeight: 500,
+              color: C.ink2
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            style={{
+              border: "none",
+              background: C.ink,
+              color: "#fff",
+              borderRadius: 6,
+              padding: "8px 16px",
+              cursor: "pointer",
+              fontSize: 13,
+              fontWeight: 600
+            }}
+          >
+            Save Changes
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── 7. SALES ────────────────────────────────────────────────────── */
+function Sales({q}){
+  const [open,setOpen]=useState(null);
+  const list=SALES0.filter(s=>matches(q,s.name));
+  const tT=SALES0.reduce((s,x)=>s+x.target,0),tA=SALES0.reduce((s,x)=>s+x.achieved,0),tI=SALES0.reduce((s,x)=>s+x.incentive,0);
+  return <div style={{display:"flex",flexDirection:"column",gap:16}}>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
+      <KPI label="Team target" value={inrC(tT)}/><KPI label="Team achieved" value={inrC(tA)} note={`${Math.round(tA/tT*100)}% of target`} tone={C.accent}/>
+      <KPI label="Total incentive" value={inrC(tI)}/><KPI label="Reps active" value={SALES0.length}/></div>
+    <Panel pad={false} title="Sales performance" sub="Targets, achievement and incentives">
+      <table style={{width:"100%",borderCollapse:"collapse"}}>
+        <thead><tr><th style={th}>Salesperson</th><th style={{...th,textAlign:"right"}}>Target</th><th style={{...th,textAlign:"right"}}>Achieved</th><th style={{...th,textAlign:"right"}}>Pending</th><th style={{...th,width:130}}>Achievement</th><th style={{...th,textAlign:"right"}}>Incentive</th><th style={th}>Period</th><th style={{...th,textAlign:"right"}}></th></tr></thead>
+        <tbody>{list.map(s=>{const pct=Math.round(s.achieved/s.target*100),exp=open===s.name;return <React.Fragment key={s.name}>
+          <tr className="row"><td style={{...td,color:C.ink,fontWeight:500}}>{s.name}</td>
+            <td className="num" style={{...td,textAlign:"right"}}>{inrC(s.target)}</td><td className="num" style={{...td,textAlign:"right",color:C.ink}}>{inrC(s.achieved)}</td>
+            <td className="num" style={{...td,textAlign:"right",color:C.ink3}}>{inrC(s.target-s.achieved)}</td>
+            <td style={td}><div style={{display:"flex",alignItems:"center",gap:8}}><div style={{height:4,background:C.line,borderRadius:99,overflow:"hidden",flex:1}}><div style={{height:"100%",width:`${Math.min(100,pct)}%`,background:pct>=90?C.ok:pct>=60?C.accent:C.warn}}/></div><span className="num" style={{fontSize:11.5,color:C.ink2,width:32,textAlign:"right"}}>{pct}%</span></div></td>
+            <td className="num" style={{...td,textAlign:"right"}}>{inr(s.incentive)}</td><td style={td}>{s.period}</td>
+            <td style={{...td,textAlign:"right"}}><button className="lnk" onClick={()=>setOpen(exp?null:s.name)} style={{border:"none",background:"none",color:C.ink2,fontSize:12.5,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:4}}>Detail <Icon n={exp?"down":"right"} size={13} color={C.ink3}/></button></td></tr>
+          {exp&&<tr><td colSpan={8} style={{padding:0,borderBottom:`1px solid ${C.line}`,background:"#FBFBF9"}}><div style={{padding:"14px 16px",display:"flex",gap:28,alignItems:"center",flexWrap:"wrap"}}>
+            {[["Projects closed",s.closed],["Revenue generated",inrC(s.revenue)],["Open opportunities",s.opps]].map(([k,v])=><div key={k}><div style={{fontSize:10.5,color:C.ink3,textTransform:"uppercase",letterSpacing:".04em"}}>{k}</div><div className="num" style={{fontSize:16,color:C.ink,marginTop:3}}>{v}</div></div>)}
+            <div style={{marginLeft:"auto",textAlign:"right"}}><div style={{fontSize:10.5,color:C.ink3,textTransform:"uppercase",letterSpacing:".04em",marginBottom:4}}>Performance trend</div><Spark pts={s.trend} color={pct>=90?C.ok:C.accent}/></div></div></td></tr>}
+        </React.Fragment>;})}</tbody></table>
+    </Panel>
+  </div>;
+}
+
+/* ── profile ─────────────────────────────────────────────────────── */
+function Profile({currentUser, onClose,onLogout}){
+  const A = {
+    name: currentUser?.name || "Arjun Mehta",
+    email: currentUser?.email || "admin@pulseorganizer.io",
+    role: currentUser?.role || "Operations Admin"
+  };
+  const init = A.name.split(" ").map(n => n[0]).join("");
+  return <><div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(20,20,25,.18)",zIndex:80}}/>
+    <aside style={{position:"fixed",top:0,right:0,height:"100%",width:340,maxWidth:"92%",background:C.surface,borderLeft:`1px solid ${C.line}`,zIndex:90,display:"flex",flexDirection:"column"}}>
+      <div style={{padding:"16px 22px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:13.5,fontWeight:600,color:C.ink}}>Profile</span><button className="ghost" onClick={onClose} style={{border:"none",background:"none",borderRadius:6,padding:5,cursor:"pointer"}}><Icon n="x" size={16} color={C.ink2}/></button></div>
+      <div style={{padding:22,flex:1}}><div style={{display:"flex",alignItems:"center",gap:13,marginBottom:22}}>
+        <div style={{width:46,height:46,borderRadius:99,border:`1px solid ${C.line}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:600,color:C.ink}}>{init}</div>
+        <div><div style={{fontSize:15.5,fontWeight:600,color:C.ink}}>{A.name}</div><div style={{fontSize:12.5,color:C.ink3}}>{A.role}</div></div></div>
+        <dl style={{margin:0}}>{[["Name",A.name],["Email",A.email],["Role",A.role]].map(([k,v])=><div key={k} style={{display:"flex",justifyContent:"space-between",gap:16,padding:"10px 0",borderBottom:`1px solid ${C.line}`,fontSize:13}}><dt style={{color:C.ink3}}>{k}</dt><dd style={{margin:0,color:C.ink,textAlign:"right"}}>{v}</dd></div>)}</dl></div>
+      <div style={{padding:"14px 22px",borderTop:`1px solid ${C.line}`}}><button className="ghost" onClick={onLogout} style={{width:"100%",border:`1px solid ${C.line}`,borderRadius:7,background:C.surface,color:C.ink2,fontSize:13,padding:"10px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}><Icon n="logout" size={15} color={C.ink2}/> Logout</button></div>
+    </aside></>;
+}
+
+/* ── login ───────────────────────────────────────────────────────── */
+function Login({onLogin}){const [email,setEmail]=useState("admin@pulseorganizer.io");const [pw,setPw]=useState("password123");
+  return <div className="pulse-root" style={{minHeight:"100vh",background:C.paper,display:"flex"}}>
+    <div className="ll" style={{flex:1,background:C.ink,color:"#fff",padding:"56px",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10}}><div style={{width:30,height:30,borderRadius:8,border:"1px solid rgba(255,255,255,.25)",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon n="clock" size={16} color="#fff"/></div><span style={{fontSize:17,fontWeight:700}}>Pulse</span></div>
+      <div><h1 style={{fontSize:32,fontWeight:600,letterSpacing:"-0.03em",lineHeight:1.15,margin:0,maxWidth:440}}>The business view, on top of delivery.</h1>
+        <p style={{fontSize:15,color:"rgba(255,255,255,.65)",marginTop:14,maxWidth:380,lineHeight:1.55}}>Finance, people, access and sales — one operations layer.</p></div>
+      <div style={{fontSize:12,color:"rgba(255,255,255,.4)"}}>Operations & Administration</div></div>
+    <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",padding:32}}>
+      <div style={{width:"100%",maxWidth:340}}>
+        <h2 style={{fontSize:20,fontWeight:600,color:C.ink,margin:0}}>Sign in</h2><p style={{fontSize:13.5,color:C.ink2,margin:"6px 0 26px"}}>Welcome back.</p>
+        <div style={{marginBottom:14}}><label style={{fontSize:12,color:C.ink2,display:"block",marginBottom:6}}>Email</label><input className="txt" value={email} onChange={e=>setEmail(e.target.value)} style={inputStyle} onKeyDown={e=>e.key==="Enter"&&onLogin(email)}/></div>
+        <div style={{marginBottom:20}}><label style={{fontSize:12,color:C.ink2,display:"block",marginBottom:6}}>Password</label><input className="txt" type="password" value={pw} onChange={e=>setPw(e.target.value)} style={inputStyle} onKeyDown={e=>e.key==="Enter"&&onLogin(email)}/></div>
+        <button className="primary" onClick={()=>onLogin(email)} style={{...btnPrimary,width:"100%",justifyContent:"center",padding:"11px"}}>Log in <Icon n="arrow" size={15} color="#fff"/></button>
+        <div style={{fontSize:11.5,color:C.ink3,marginTop:16,textAlign:"center"}}>Role-based — this account routes to Operations.</div></div></div>
+    <style>{`@media(max-width:820px){.ll{display:none!important}}`}</style></div>;
+}
+
+/* ── CLIENTS (directory + financial detail) ──────────────────────── */
+function clientStats(c){const ps=PROJECTS.filter(p=>p.client===c.name);
+  return {ps,total:ps.length,active:ps.filter(p=>p.status==="Active").length,pms:Array.from(new Set(ps.map(p=>p.pm).filter(x=>x&&x!=="—")))};}
+function Clients({ledger,show,q}){
+  const [ind,setInd]=useState("All industries");const [filt,setFilt]=useState("All clients");const [open,setOpen]=useState(null);
+  const inds=["All industries",...Array.from(new Set(CLIENTS0.map(c=>c.industry)))];
+  const list=CLIENTS0.filter(c=>{const s=clientStats(c);
+    if(ind!=="All industries"&&c.industry!==ind)return false;
+    if(filt==="Active clients"&&c.status!=="Active")return false;
+    if(filt==="Inactive clients"&&c.status!=="Inactive")return false;
+    if(filt==="With active projects"&&s.active===0)return false;
+    if(filt==="Without projects"&&s.total>0)return false;
+    return matches(q,c.name,c.contact,c.industry,c.country);});
+  return <>
+    <Panel pad={false} title="Client directory" sub="Accounts behind every project" right={<div style={{display:"flex",gap:8}}><Select value={ind} onChange={setInd} opts={inds}/><Select value={filt} onChange={setFilt} opts={["All clients","Active clients","Inactive clients","With active projects","Without projects"]}/></div>}>
+      {list.length===0?<Empty msg="No clients match the current filters."/>:
+      <table style={{width:"100%",borderCollapse:"collapse"}}>
+        <thead><tr><th style={th}>Client</th><th style={th}>Industry</th><th style={th}>Primary contact</th><th style={th}>Country</th><th style={{...th,textAlign:"right"}}>Projects</th><th style={{...th,textAlign:"right"}}>Active</th><th style={{...th,textAlign:"right"}}>Net profit</th><th style={{...th,textAlign:"right"}}></th></tr></thead>
+        <tbody>{list.map(c=>{const s=clientStats(c);const rev=s.ps.reduce((a,p)=>a+ledger.filter(f=>f.type==="Income"&&f.proj===p.id).reduce((x,f)=>x+f.amt,0),0);const exp=s.ps.reduce((a,p)=>a+ledger.filter(f=>f.type==="Expense"&&f.proj===p.id).reduce((x,f)=>x+f.amt,0),0);
+          return <tr key={c.id} className="row" style={{opacity:c.status==="Inactive"?.6:1}}>
+          <td style={{...td,color:C.ink,fontWeight:500}}>{c.name}</td><td style={td}>{c.industry}</td><td style={td}>{c.contact}</td><td style={td}>{c.country}</td>
+          <td className="num" style={{...td,textAlign:"right"}}>{s.total}</td><td className="num" style={{...td,textAlign:"right",color:s.active?C.ok:C.ink3}}>{s.active}</td>
+          <td className="num" style={{...td,textAlign:"right",color:rev-exp>=0?C.ok:C.err,fontWeight:500}}>{s.total?inrC(rev-exp):"—"}</td>
+          <td style={{...td,textAlign:"right"}}><button className="lnk" onClick={()=>setOpen(c)} style={{border:"none",background:"none",color:C.ink2,fontSize:12.5,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:5}}>View <Icon n="right" size={13} color={C.ink3}/></button></td></tr>;})}</tbody></table>}
+    </Panel>
+    {open&&<ClientDetail client={open} ledger={ledger} onClose={()=>setOpen(null)}/>}
+  </>;
+}
+function ClientDetail({client,ledger,onClose}){
+  const ps=PROJECTS.filter(p=>p.client===client.name);
+  const entries=ledger.filter(f=>ps.some(p=>p.id===f.proj));
+  const rev=entries.filter(f=>f.type==="Income").reduce((s,f)=>s+f.amt,0);
+  const exp=entries.filter(f=>f.type==="Expense").reduce((s,f)=>s+f.amt,0);
+  const resources=ps.reduce((s,p)=>s+p.resources,0);
+  const timeline=[...entries.map(f=>({t:`${f.type==="Income"?"Revenue":"Expense"} added — ${f.cat} (${inrC(f.amt)})`,d:f.date,c:f.type==="Income"?C.ok:C.ink3})),...ps.map(p=>({t:`Project created — ${p.name}`,d:"—",c:C.accent}))];
+  return <><div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(20,20,25,.18)",zIndex:80}}/>
+    <aside style={{position:"fixed",top:0,right:0,height:"100%",width:480,maxWidth:"94%",background:C.surface,borderLeft:`1px solid ${C.line}`,zIndex:90,display:"flex",flexDirection:"column"}}>
+      <div style={{padding:"16px 22px",borderBottom:`1px solid ${C.line}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span style={{fontSize:14,fontWeight:600,color:C.ink}}>{client.name}</span>
+        <button className="ghost" onClick={onClose} style={{border:"none",background:"none",borderRadius:6,padding:5,cursor:"pointer"}}><Icon n="x" size={16} color={C.ink2}/></button></div>
+      <div style={{padding:22,overflowY:"auto",flex:1}}>
+        <div style={{fontSize:11,color:C.ink3,textTransform:"uppercase",letterSpacing:".05em",marginBottom:8}}>Overview</div>
+        <dl style={{margin:"0 0 22px"}}>{[["Contact",client.contact],["Email",client.email],["Phone",client.phone],["Website",client.website],["Industry",client.industry],["Country",client.country]].map(([k,v])=>
+          <div key={k} style={{display:"flex",justifyContent:"space-between",gap:16,padding:"8px 0",borderBottom:`1px solid ${C.line}`,fontSize:13}}><dt style={{color:C.ink3}}>{k}</dt><dd style={{margin:0,color:C.ink,textAlign:"right"}}>{v||"—"}</dd></div>)}</dl>
+
+        <div style={{fontSize:11,color:C.ink3,textTransform:"uppercase",letterSpacing:".05em",marginBottom:8}}>Financial summary</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:22}}>
+          {[["Revenue",inrC(rev),C.ink],["Expenses",inrC(exp),C.ink],["Net profit",inrC(rev-exp),rev-exp>=0?C.ok:C.err]].map(([k,v,col])=><div key={k} style={{border:`1px solid ${C.line}`,borderRadius:8,padding:"10px 12px"}}><div style={{fontSize:10.5,color:C.ink3,textTransform:"uppercase",letterSpacing:".04em"}}>{k}</div><div className="num" style={{fontSize:15,color:col,marginTop:3,fontWeight:600}}>{v}</div></div>)}</div>
+
+        <div style={{fontSize:11,color:C.ink3,textTransform:"uppercase",letterSpacing:".05em",marginBottom:8}}>Projects ({ps.length}) · {resources} resources</div>
+        {ps.length===0?<Empty msg="No projects yet for this client."/>:
+          <table style={{width:"100%",borderCollapse:"collapse",marginBottom:22}}><thead><tr><th style={th}>Project</th><th style={th}>PM</th><th style={th}>Status</th><th style={{...th,textAlign:"right"}}>Profit</th></tr></thead>
+            <tbody>{ps.map(p=>{const r=ledger.filter(f=>f.type==="Income"&&f.proj===p.id).reduce((a,f)=>a+f.amt,0),e=ledger.filter(f=>f.type==="Expense"&&f.proj===p.id).reduce((a,f)=>a+f.amt,0);return <tr key={p.id} className="row"><td style={{...td,color:C.ink}}>{p.name}</td><td style={td}>{p.pm}</td><td style={td}><Tag s={p.status} strong/></td><td className="num" style={{...td,textAlign:"right",color:r-e>=0?C.ok:C.err}}>{inrC(r-e)}</td></tr>;})}</tbody></table>}
+
+        <div style={{fontSize:11,color:C.ink3,textTransform:"uppercase",letterSpacing:".05em",marginBottom:8}}>Activity timeline</div>
+        <div>{timeline.map((e,i)=><div key={i} style={{display:"flex",gap:10,padding:"8px 0",borderBottom:i<timeline.length-1?`1px solid ${C.line}`:"none"}}><span style={{marginTop:5}}><Dot c={e.c}/></span><div style={{fontSize:12.5,color:C.ink}}>{e.t}<span style={{color:C.ink3}} className="num"> · {e.d}</span></div></div>)}</div>
+      </div>
+    </aside></>;
+}
+
+/* ── shell ───────────────────────────────────────────────────────── */
+const TABS = [
+  ["Business", "bars", "viewDashboard"],
+  ["Finance", "wallet", "viewFinanceModule"],
+  ["Clients", "building", "viewProjects"],
+  ["Projects", "folder", "viewProjects"],
+  ["PMs", "brief", "viewProjects"],
+  ["People", "users", "viewHRModule"],
+  ["Sales", "trend", "viewIncentives"],
+  ["Vendor Resources", "globe", "viewHRModule"],
+  ["Access", "shield", "viewRoles"]
+];
+
+function Dashboard({ currentUser, onLogout, toast, show }) {
+  const [rolePerms, setRolePerms] = useState(loadRolePermissions);
+  const [q, setQ] = useState("");
+  const [people, setPeople] = useState(PEOPLE0);
+  const [ledger, setLedger] = useState(FINANCE0);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+
+  useEffect(() => {
+    const handlePermsChange = () => {
+      setRolePerms(loadRolePermissions());
+    };
+    window.addEventListener("perms_changed", handlePermsChange);
+    return () => window.removeEventListener("perms_changed", handlePermsChange);
+  }, []);
+
+  const hasPerm = (permissionKey) => {
+    if (currentUser.role === "Admin") return true;
+    const roleKey = currentUser.role.toLowerCase();
+    return rolePerms[roleKey]?.[permissionKey] ?? DEFAULT_ROLE_PERMS[roleKey]?.[permissionKey] ?? false;
+  };
+
+  const visibleTabs = TABS.filter(([_, __, permKey]) => hasPerm(permKey));
+
+  const [tab, setTab] = useState(() => {
+    return visibleTabs.length > 0 ? visibleTabs[0][0] : "Business";
+  });
+
+  const initials = currentUser.name.split(" ").map(n => n[0]).join("");
+
+  return (
+    <div className="pulse-root" style={{ minHeight: "100vh", background: "#F8FAFC", display: "flex" }}>
+      {/* Left Sidebar */}
+      <aside style={{
+        width: 240,
+        background: "#0B1930",
+        color: "#fff",
+        display: "flex",
+        flexDirection: "column",
+        flexShrink: 0,
+        borderRight: "1px solid rgba(255,255,255,0.08)"
+      }}>
+        {/* Sidebar Header */}
+        <div style={{
+          height: 58,
+          padding: "0 20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          borderBottom: "1px solid rgba(255,255,255,0.08)"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 7, background: "rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Icon n="shield" size={15} color="#fff" />
+            </div>
+            <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: "-0.02em" }}>Company Portal</span>
+          </div>
+          <button style={{ border: "none", background: "none", cursor: "pointer", padding: 0, display: "flex", opacity: 0.5 }}>
+            <Icon n="left" size={14} color="#fff" />
+          </button>
+        </div>
+
+        {/* Sidebar Navigation Items */}
+        <div style={{ flex: 1, padding: "16px 12px", display: "flex", flexDirection: "column", gap: 4, overflowY: "auto" }}>
+          {visibleTabs.map(([label, icon]) => {
+            const active = tab === label;
+            return (
+              <button
+                key={label}
+                onClick={() => {
+                  setTab(label);
+                  setQ("");
+                }}
+                style={{
+                  border: "none",
+                  background: active ? "rgba(255,255,255,0.08)" : "transparent",
+                  cursor: "pointer",
+                  padding: "10px 12px",
+                  fontSize: 13,
+                  fontWeight: active ? 600 : 500,
+                  color: active ? "#ffffff" : "rgba(255,255,255,0.65)",
+                  borderRadius: 6,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  textAlign: "left",
+                  outline: "none",
+                  transition: "background 0.15s, color 0.15s"
+                }}
+                className="sidebar-item"
+              >
+                <Icon n={icon} size={15} color={active ? "#ffffff" : "rgba(255,255,255,0.65)"} />
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Sidebar Footer Profile */}
+        <div style={{
+          padding: "16px 20px",
+          borderTop: "1px solid rgba(255,255,255,0.08)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8
+        }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, overflow: "hidden", flex: 1 }}>
+            <span style={{ fontSize: 13, fontWeight: 500, color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={currentUser.email}>
+              {currentUser.email}
+            </span>
+            <span style={{
+              alignSelf: "flex-start",
+              fontSize: 10,
+              fontWeight: 700,
+              color: "#1E429F",
+              background: "#E1EFFE",
+              padding: "2px 6px",
+              borderRadius: 4,
+              textTransform: "uppercase"
+            }}>
+              {currentUser.role || "ADMIN"}
+            </span>
+          </div>
+          <button
+            onClick={onLogout}
+            style={{
+              border: "none",
+              background: "none",
+              cursor: "pointer",
+              padding: 4,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 4,
+              color: "rgba(255,255,255,0.65)",
+              transition: "color 0.15s"
+            }}
+            title="Log out"
+          >
+            <Icon n="logout" size={16} />
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+        {/* Main Area Header */}
+        <header style={{ background: C.surface, borderBottom: `1px solid ${C.line}`, padding: "0 28px", height: 58, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, position: "sticky", top: 0, zIndex: 30 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <h1 style={{ fontSize: 18, fontWeight: 700, color: C.ink, margin: 0 }}>{tab}</h1>
+          </div>
+
+          <div style={{ flex: 1, maxWidth: 400, display: "flex", alignItems: "center", gap: 8, border: `1px solid ${C.line}`, borderRadius: 7, padding: "8px 12px", background: C.surface }}>
+            <Icon n="search" size={15} color={C.ink3} />
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search..." style={{ border: "none", outline: "none", fontSize: 13, color: C.ink, background: "transparent", width: "100%" }} />
+            {q && (
+              <button onClick={() => setQ("")} style={{ border: "none", background: "none", cursor: "pointer", padding: 0, display: "flex" }}>
+                <Icon n="x" size={14} color={C.ink3} />
+              </button>
+            )}
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <span style={{ fontSize: 12, color: C.ink3 }}>FY 2025–26 · Q2</span>
+            <div style={{ position: "relative" }}>
+              <button className="ghost" onClick={() => setNotifOpen(o => !o)} style={{ ...navBtn, position: "relative" }}>
+                <Icon n="bell" size={17} color={C.ink2} />
+                <span style={{ position: "absolute", top: 3, right: 3, width: 7, height: 7, borderRadius: 99, background: C.accent, border: `1.5px solid ${C.surface}` }} />
+              </button>
+              {notifOpen && (
+                <>
+                  <div onClick={() => setNotifOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
+                  <div style={{ position: "absolute", right: 0, top: 38, width: 320, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 10, boxShadow: "0 8px 30px rgba(0,0,0,.12)", zIndex: 50, overflow: "hidden" }}>
+                    <div style={{ padding: "11px 14px", borderBottom: `1px solid ${C.line}`, fontSize: 12.5, fontWeight: 600, color: C.ink }}>Notifications</div>
+                    {NOTIFS.map((n, i) => (
+                      <div key={i} style={{ padding: "11px 14px", borderBottom: i < NOTIFS.length - 1 ? `1px solid ${C.line}` : "none", display: "flex", gap: 10 }}>
+                        <span style={{ marginTop: 5 }}><Dot c={n.tone} /></span>
+                        <div>
+                          <div style={{ fontSize: 12.5, color: C.ink, lineHeight: 1.4 }}>{n.t}</div>
+                          <div style={{ fontSize: 11, color: C.ink3, marginTop: 2 }}>{n.time}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            <button onClick={() => setProfileOpen(true)} style={{ width: 30, height: 30, borderRadius: 99, background: C.ink, color: "#fff", fontSize: 11, fontWeight: 600, border: "none", cursor: "pointer" }}>
+              {initials}
+            </button>
+          </div>
+        </header>
+
+        {/* Main Content Body */}
+        <main style={{ maxWidth: 1180, margin: "0 auto", padding: "24px 28px", width: "100%" }}>
+          {tab === "Business" && <Business people={people} />}
+          {tab === "Finance" && <Finance ledger={ledger} setLedger={setLedger} show={show} q={q} />}
+          {tab === "Projects" && <Projects ledger={ledger} people={people} q={q} />}
+          {tab === "PMs" && <PMs people={people} q={q} />}
+          {tab === "Clients" && <Clients ledger={ledger} show={show} q={q} />}
+          {tab === "People" && <People people={people} setPeople={setPeople} show={show} q={q} />}
+          {tab === "Sales" && <Sales q={q} />}
+          {tab === "Vendor Resources" && <Outsourced q={q} />}
+          {tab === "Access" && <Access show={show} />}
+        </main>
+      </div>
+
+      {profileOpen && <Profile currentUser={currentUser} onClose={() => setProfileOpen(false)} onLogout={onLogout} />}
+      {toast}
+    </div>
+  );
+}
+const navBtn = { width: 30, height: 30, border: "none", background: "none", borderRadius: 6, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" };
+
+function App() {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [toast, show] = useToast();
+
+  const handleLogin = (email) => {
+    const user = PEOPLE0.find(p => p.email === email || p.id === email || (email === "admin@pulseorganizer.io" && p.id === "EMP-1014"));
+    if (user) {
+      setCurrentUser(user);
+    } else {
+      setCurrentUser(PEOPLE0.find(p => p.id === "EMP-1014"));
+    }
+  };
+
+  if (!currentUser) return <><style>{sheet}</style><Login onLogin={handleLogin} /></>;
+  return <><style>{sheet}</style><Dashboard currentUser={currentUser} onLogout={() => setCurrentUser(null)} toast={toast} show={show} /></>;
+}
+const s=document.createElement("style");s.textContent=sheet;document.head.appendChild(s);
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
