@@ -21,7 +21,9 @@ const INITIAL_PEOPLE = [
   { id: "arjun", empId: "EMP-1014", name: "Arjun Mehta", dept: "Operations", designation: "Operations Admin", role: "Admin", status: "Active", joined: "01 Dec 2022", manager: "CEO", email: "arjun.m@pulseorganizer.io", skills: ["Office Management", "System Admin"], capacity: 40, phone: "+91 98100 22347", ctc: 850000, leaveBalance: 12, leavesTaken: 4, performanceRating: 4.3, onboardingStatus: "Complete", onboardingChecklist: { bgCheck: true, contractSigned: true, hardwareIssued: true, bankDetailsAdded: true } },
   { id: "fiona", empId: "EMP-1020", name: "Fiona Vance", dept: "Finance", designation: "Finance Lead", role: "Finance", status: "Active", joined: "10 Jan 2024", manager: "COO", email: "finance@pulseorganizer.io", skills: ["Accounting", "Excel"], capacity: 40, phone: "+91 98100 22348", ctc: 1500000, leaveBalance: 13, leavesTaken: 3, performanceRating: 4.7, onboardingStatus: "Complete", onboardingChecklist: { bgCheck: true, contractSigned: true, hardwareIssued: true, bankDetailsAdded: true } },
   { id: "harriet", empId: "EMP-1021", name: "Harriet Reed", dept: "HR", designation: "HR Generalist", role: "HR", status: "Active", joined: "15 Feb 2024", manager: "COO", email: "hr@pulseorganizer.io", skills: ["Recruiting", "Onboarding"], capacity: 40, phone: "+91 98100 22349", ctc: 1100000, leaveBalance: 14, leavesTaken: 2, performanceRating: 4.5, onboardingStatus: "Complete", onboardingChecklist: { bgCheck: true, contractSigned: true, hardwareIssued: true, bankDetailsAdded: true } },
-  { id: "karan", empId: "EMP-1015", name: "Karan Shah", dept: "Engineering", designation: "Developer", role: "Resource", status: "Inactive", joined: "08 Mar 2023", manager: "David Okoye", email: "karan.s@pulseorganizer.io", skills: ["React", "CSS"], capacity: 40, phone: "+91 98100 22350", ctc: 950000, leaveBalance: 12, leavesTaken: 5, performanceRating: 4.1, onboardingStatus: "Complete", onboardingChecklist: { bgCheck: true, contractSigned: true, hardwareIssued: true, bankDetailsAdded: true } }
+  { id: "karan", empId: "EMP-1015", name: "Karan Shah", dept: "Engineering", designation: "Developer", role: "Resource", status: "Inactive", joined: "08 Mar 2023", manager: "David Okoye", email: "karan.s@pulseorganizer.io", skills: ["React", "CSS"], capacity: 40, phone: "+91 98100 22350", ctc: 950000, leaveBalance: 12, leavesTaken: 5, performanceRating: 4.1, onboardingStatus: "Complete", onboardingChecklist: { bgCheck: true, contractSigned: true, hardwareIssued: true, bankDetailsAdded: true } },
+  { id: "priyanka", empId: "EMP-1022", name: "Priyanka Sharma", dept: "Engineering", designation: "Software Engineer", role: "Unassigned", status: "Active", joined: "18 Jun 2026", manager: "David Okoye", email: "priyanka.s@pulseorganizer.io", skills: ["React", "CSS"], capacity: 40, phone: "+91 98100 22351", ctc: 800000, leaveBalance: 12, leavesTaken: 0, performanceRating: 0.0, onboardingStatus: "In Progress", onboardingChecklist: { bgCheck: true, contractSigned: false, hardwareIssued: false, bankDetailsAdded: false } },
+  { id: "kabir", empId: "EMP-1023", name: "Kabir Malhotra", dept: "Product Design", designation: "Junior Designer", role: "Unassigned", status: "Active", joined: "25 Jun 2026", manager: "Sarah Jenkins", email: "kabir.m@pulseorganizer.io", skills: ["Figma"], capacity: 40, phone: "+91 98100 22352", ctc: 600000, leaveBalance: 12, leavesTaken: 0, performanceRating: 0.0, onboardingStatus: "In Progress", onboardingChecklist: { bgCheck: false, contractSigned: false, hardwareIssued: false, bankDetailsAdded: false } }
 ];
 
 const INITIAL_CLIENTS = [
@@ -712,6 +714,30 @@ export function DatabaseProvider({ children }) {
     }
   };
 
+  const bulkAssignRoles = (empIds, newRole) => {
+    const adminName = currentUser ? currentUser.name : "System";
+    const timestamp = new Date().toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit' }) + ", " + new Date().toLocaleDateString("en-IN", { day: '2-digit', month: 'short' });
+    
+    setPeople(prev => {
+      return prev.map(p => {
+        if (empIds.includes(p.id)) {
+          const targetRole = typeof newRole === 'object' ? newRole[p.id] : newRole;
+          const oldRole = p.role;
+          if (oldRole !== targetRole) {
+            addNotification(`[Audit Log] ${adminName} updated role of ${p.name} from ${oldRole} to ${targetRole} at ${timestamp}`, "#38618C");
+          }
+          return { ...p, role: targetRole };
+        }
+        return p;
+      });
+    });
+
+    if (currentUser && empIds.includes(currentUser.id)) {
+      const targetRole = typeof newRole === 'object' ? newRole[currentUser.id] : newRole;
+      setCurrentUser(prev => ({ ...prev, role: targetRole }));
+    }
+  };
+
   const updateSkills = (empId, skillsList) => {
     setPeople(prev => prev.map(p => p.id === empId ? { ...p, skills: skillsList } : p));
     if (currentUser && currentUser.id === empId) {
@@ -820,6 +846,7 @@ export function DatabaseProvider({ children }) {
     deleteOutsourced,
     addEmployee,
     updateEmployee,
+    bulkAssignRoles,
     updateSkills,
     addFinanceEntry,
     applyLeave,

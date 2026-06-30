@@ -464,10 +464,17 @@ const saveRolePermissions = (perms) => {
   localStorage.setItem("pulse_role_perms", JSON.stringify(perms));
 };
 
+const normalizeRole = (role) => {
+  if (!role) return "";
+  const r = role.toLowerCase();
+  if (r === 'pm') return 'project manager';
+  if (r === 'resource') return 'resources';
+  return r;
+};
+
 const hasPermission = (role, permissionKey) => {
-  if (role === "Admin") return true;
   const perms = loadRolePermissions();
-  const roleKey = role.toLowerCase();
+  const roleKey = normalizeRole(role);
   if (perms[roleKey] && perms[roleKey][permissionKey] !== undefined) {
     return perms[roleKey][permissionKey];
   }
@@ -488,7 +495,7 @@ function RolesAccessManager({ onPermissionsChange, showToast }) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState("");
 
-  const rolesList = ["finance", "hr", "project manager", "sales", "resources"];
+  const rolesList = ["admin", "finance", "hr", "project manager", "sales", "resources"];
   const activePerms = rolePerms[selectedRole] || {};
 
   const handleToggle = (permKey) => {
@@ -849,8 +856,7 @@ export default function AdminDashboard() {
   const [toast, showToast] = useToast();
 
   const hasPerm = (permissionKey) => {
-    if (currentUser.role === "Admin") return true;
-    const roleKey = currentUser.role.toLowerCase();
+    const roleKey = normalizeRole(currentUser.role);
     return rolePerms[roleKey]?.[permissionKey] ?? DEFAULT_ROLE_PERMS[roleKey]?.[permissionKey] ?? false;
   };
 
@@ -1094,13 +1100,13 @@ export default function AdminDashboard() {
                 </button>
               </div>
             )}
-            {subTab === "Users" && hasPerm("viewUsers") && <People showToast={showToast} />}
+            {subTab === "Users" && hasPerm("viewUsers") && <People showToast={showToast} rolePerms={rolePerms} />}
             {subTab === "Roles" && hasPerm("viewRoles") && <RolesAccessManager onPermissionsChange={setRolePerms} showToast={showToast} />}
           </div>
         )}
         {tab === "Clients" && <Clients q={q} />}
         {tab === "Vendor Resources" && <Outsourced q={q} />}
-        {tab === "HR Module" && <HRModule showToast={showToast} />}
+        {tab === "HR Module" && <HRModule showToast={showToast} hasPerm={hasPerm} />}
         {tab === "Finance" && <Finance showToast={showToast} />}
         {tab === "Projects" && <Projects />}
         

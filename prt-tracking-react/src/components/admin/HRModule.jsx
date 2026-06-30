@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useDatabase } from '../../state/db';
 import Icon from '../common/Icon';
 import { Panel, Tag, Dot, Empty, Modal, Drawer, btnGhost, btnPrimary, inputStyle } from '../common/UI';
-
+import { EmployeeForm } from './People';
 const C = {
   line: "#E7E6E0",
   lineStrong: "#D8D7CF",
@@ -43,7 +43,7 @@ const HRField = ({ label, children }) => (
   </div>
 );
 
-export default function HRModule({ showToast }) {
+export default function HRModule({ showToast, hasPerm }) {
   const { 
     people, 
     leaves, 
@@ -52,7 +52,10 @@ export default function HRModule({ showToast }) {
     updateOnboardingChecklist, 
     updatePerformanceRating, 
     updateEmployeeHRDetails, 
-    currentUser 
+    currentUser,
+    timesheets,
+    projects,
+    addEmployee
   } = useDatabase();
 
   const [activeTab, setActiveTab] = useState("Employees");
@@ -61,8 +64,13 @@ export default function HRModule({ showToast }) {
   const [editEmp, setEditEmp] = useState(null);
   const [rejectLeaveId, setRejectLeaveId] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [showAddEmployee, setShowAddEmployee] = useState(false);
+  
+  const [exportEmployee, setExportEmployee] = useState(null); // 'all' | employee_object | null
+  const [exportMonth, setExportMonth] = useState("June 2026");
 
   const hasSalaryView = currentUser.role === "Admin" || currentUser.role === "HR";
+  const canExport = hasPerm ? hasPerm("exportEmployees") : (currentUser.role === "Admin" || currentUser.role === "HR");
 
   // Filtered employees list
   const filteredEmployees = people.filter(p => {
@@ -83,6 +91,75 @@ export default function HRModule({ showToast }) {
     updateEmployeeHRDetails(editEmp.id, data);
     showToast(`HR details updated for ${editEmp.name}`);
     setEditEmp(null);
+  };
+
+  const handleExportTimesheets = () => {
+    const monthMap = {
+      "January": 0, "February": 1, "March": 2, "April": 3, "May": 4, "June": 5,
+      "July": 6, "August": 7, "September": 8, "October": 9, "November": 10, "December": 11
+    };
+    const [monthStr, yearStr] = exportMonth.split(" ");
+    const targetMonth = monthMap[monthStr];
+    const targetYear = parseInt(yearStr, 10);
+
+    const getEmpName = (empId) => people.find(p => p.id === empId)?.name || empId;
+    const getEmpIdStr = (empId) => people.find(p => p.id === empId)?.empId || "";
+    const getProjName = (projId) => projects.find(p => p.id === projId)?.name || projId;
+    
+    const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    
+    const csvRows = [
+      ["Employee ID", "Employee Name", "Project Name", "Date", "Day", "Hours Logged", "Work Description", "Timesheet Status"]
+    ];
+
+    timesheets.forEach(ts => {
+      if (exportEmployee !== "all" && ts.employeeId !== exportEmployee.id) return;
+      Object.keys(ts.entries).forEach(projId => {
+        ts.entries[projId].forEach((dayLog, dayIdx) => {
+          if (dayLog && dayLog.h > 0) {
+            const entryDate = new Date("2026-06-24");
+            entryDate.setDate(entryDate.getDate() + ts.weekIdx * 7 + dayIdx);
+            
+            if (entryDate.getMonth() === targetMonth && entryDate.getFullYear() === targetYear) {
+              const formattedDate = entryDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+              csvRows.push([
+                getEmpIdStr(ts.employeeId),
+                getEmpName(ts.employeeId),
+                getProjName(projId),
+                formattedDate,
+                DAYS[dayIdx],
+                dayLog.h.toString(),
+                (dayLog.d || "").replace(/"/g, '""'),
+                ts.status
+              ]);
+            }
+          }
+        });
+      });
+    });
+
+    if (csvRows.length === 1) {
+      const displayTargetName = exportEmployee === "all" ? "any resources" : exportEmployee.name;
+      showToast(`No timesheet entries found for ${displayTargetName} in ${exportMonth}`, "err");
+      return;
+    }
+
+    const csvContent = "\uFEFF" + csvRows.map(e => e.map(val => `"${val}"`).join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    const filename = exportEmployee === "all"
+      ? `timesheets_export_${exportMonth.replace(" ", "_").toLowerCase()}.csv`
+      : `timesheet_${exportEmployee.id}_${exportMonth.replace(" ", "_").toLowerCase()}.csv`;
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    const displayTargetNameMsg = exportEmployee === "all" ? "All active resources" : exportEmployee.name;
+    showToast(`Timesheets exported for ${displayTargetNameMsg} (${exportMonth})`);
+    setExportEmployee(null);
   };
 
   const handleRejectSubmit = () => {
@@ -122,9 +199,19 @@ export default function HRModule({ showToast }) {
         </div>
         
         {activeTab === "Employees" && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid ${C.line}`, borderRadius: 6, padding: "5px 10px", background: C.surface, minWidth: 220 }}>
-            <Icon n="search" size={13} color={C.ink3} />
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search records..." style={{ border: "none", outline: "none", fontSize: 12.5, color: C.ink, background: "transparent", width: "100%" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, border: `1px solid ${C.line}`, borderRadius: 6, padding: "5px 10px", background: C.surface, minWidth: 220 }}>
+              <Icon n="search" size={13} color={C.ink3} />
+              <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search records..." style={{ border: "none", outline: "none", fontSize: 12.5, color: C.ink, background: "transparent", width: "100%" }} />
+            </div>
+            {canExport && (
+              <button className="ghost" style={{ ...btnGhost, padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: 6 }} onClick={() => setExportEmployee("all")}>
+                <Icon n="download" size={14} color={C.ink2} /> Export Timesheets
+              </button>
+            )}
+            <button className="primary" style={{ ...btnPrimary, padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: 6 }} onClick={() => setShowAddEmployee(true)}>
+              <Icon n="plus" size={14} color="#fff" /> Add Employee
+            </button>
           </div>
         )}
       </div>
@@ -175,6 +262,16 @@ export default function HRModule({ showToast }) {
                       >
                         <Icon n="eye" size={13} color={C.ink2} />
                       </button>
+                      {canExport && (
+                        <button
+                          title="Export Timesheet"
+                          className="ghost"
+                          onClick={() => setExportEmployee(p)}
+                          style={{ border: `1px solid ${C.line}`, background: C.surface, borderRadius: 6, padding: 6, cursor: "pointer", marginRight: 6 }}
+                        >
+                          <Icon n="download" size={13} color={C.ink2} />
+                        </button>
+                      )}
                       <button
                         title="Edit HR Details"
                         className="ghost"
@@ -356,7 +453,19 @@ export default function HRModule({ showToast }) {
         <Drawer width={440} title={`HR Record · ${selectedEmp.name}`} onClose={() => setSelectedEmp(null)}>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }} className="fade-in">
             <div>
-              <div style={{ fontSize: 11, color: C.ink3, textTransform: "uppercase", letterSpacing: ".05em", marginBottom: 6 }}>Employee Overview</div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <div style={{ fontSize: 11, color: C.ink3, textTransform: "uppercase", letterSpacing: ".05em" }}>Employee Overview</div>
+                {canExport && (
+                  <button 
+                    className="ghost" 
+                    onClick={() => setExportEmployee(selectedEmp)} 
+                    title="Export Timesheet" 
+                    style={{ border: `1px solid ${C.line}`, background: C.surface, borderRadius: 6, padding: "4px 8px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, color: C.ink2 }}
+                  >
+                    <Icon n="download" size={13} color={C.ink2} /> Export Timesheet
+                  </button>
+                )}
+              </div>
               <dl style={{ margin: 0 }}>
                 {[
                   ["Employee ID", selectedEmp.empId],
@@ -453,6 +562,55 @@ export default function HRModule({ showToast }) {
             </div>
           </div>
         </Modal>
+      )}
+
+      {/* Export Monthly Timesheets Modal */}
+      {exportEmployee && (
+        <Modal
+          title={exportEmployee === "all" ? "Export resource timesheets" : `Export timesheet: ${exportEmployee.name}`}
+          onClose={() => setExportEmployee(null)}
+          footer={
+            <>
+              <button className="demo" style={btnGhost} onClick={() => setExportEmployee(null)}>Cancel</button>
+              <button className="primary" style={btnPrimary} onClick={handleExportTimesheets}>
+                <Icon n="download" size={14} color="#fff" /> Export CSV
+              </button>
+            </>
+          }
+        >
+          <div style={{ fontSize: 13, color: C.ink, marginBottom: 14 }}>
+            Select the month to export timesheet logs for {exportEmployee === "all" ? "all active resources" : exportEmployee.name}:
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 12, color: C.ink2, marginBottom: 6 }}>Select Month</div>
+            <select
+              style={inputStyle}
+              value={exportMonth}
+              onChange={e => setExportMonth(e.target.value)}
+            >
+              {["June 2026", "July 2026", "August 2026"].map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </div>
+        </Modal>
+      )}
+      {showAddEmployee && (
+        <EmployeeForm
+          emp={null}
+          onClose={() => setShowAddEmployee(false)}
+          onSave={(data) => {
+            addEmployee({
+              id: "emp_" + Date.now(),
+              joined: new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+              onboardingStatus: "In Progress",
+              onboardingChecklist: { bgCheck: false, contractSigned: false, hardwareIssued: false, bankDetailsAdded: false },
+              ...data
+            });
+            showToast(`Added employee: ${data.name}`);
+            setShowAddEmployee(false);
+          }}
+        />
       )}
     </div>
   );

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — Learnify</title>
+  <meta name="description" content="Login to your Learnify account. Welcome back! Please sign in to continue." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+
+  <!-- ===== Page Wrapper ===== -->
+  <div class="page-wrapper" role="main">
+
+    <!-- ===== Top Branding Section ===== -->
+    <section class="top-section" aria-label="Branding">
+
+      <!-- Language Selector -->
+      <div class="lang-bar">
+        <button
+          id="lang-btn"
+          class="lang-btn"
+          aria-label="Select language: English"
+          aria-expanded="false"
+          aria-haspopup="listbox"
+          type="button"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round"
+               stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="2" y1="12" x2="22" y2="12"/>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+          </svg>
+          English
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+               stroke-linejoin="round" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Logo Placeholder -->
+      <div class="logo-wrapper" role="img" aria-label="Your logo placeholder">
+        <div class="logo-icon" aria-hidden="true">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+               stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <polyline points="21 15 16 10 5 21"/>
+          </svg>
+        </div>
+        <div class="logo-text-block">
+          <span class="logo-label">YOUR LOGO</span>
+          <span class="logo-sub">Any orientation</span>
+        </div>
+      </div>
+
+      <!-- Heading & Description -->
+      <div class="branding-heading">
+        <h1>
+          Welcome to Your
+          <span class="highlight">Learning Platform</span>
+        </h1>
+      </div>
+      <p class="branding-desc">
+        A complete solution for courses, assessments,<br />
+        and certificates — all in one place.
+      </p>
+
+    </section>
+    <!-- /top-section -->
+
+    <!-- ===== Form Card ===== -->
+    <div class="form-card" role="region" aria-label="Login Form">
+
+      <!-- Card Heading -->
+      <div class="card-heading">
+        <h2>Login to Your Account</h2>
+      </div>
+      <p class="card-desc">Welcome back! Please sign in to continue.</p>
+
+      <!-- Form -->
+      <form id="login-form" novalidate aria-label="Login">
+
+        <!-- Email / Mobile Field -->
+        <div class="form-group">
+          <label class="form-label" for="email-input">Email / Mobile No.</label>
+          <div id="email-wrapper" class="input-wrapper">
+            <input
+              id="email-input"
+              type="text"
+              placeholder="Email or Mobile No."
+              autocomplete="username"
+              inputmode="email"
+              aria-describedby="email-error"
+              aria-required="true"
+            />
+            <!-- Envelope icon -->
+            <span class="input-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                   stroke-linejoin="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+              </svg>
+            </span>
+          </div>
+          <p id="email-error" class="error-msg" role="alert" aria-live="polite"></p>
+        </div>
+
+        <!-- Password Field -->
+        <div class="form-group">
+          <label class="form-label" for="password-input">Password</label>
+          <div id="password-wrapper" class="input-wrapper">
+            <input
+              id="password-input"
+              type="password"
+              placeholder="Enter your password"
+              autocomplete="current-password"
+              aria-describedby="password-error"
+              aria-required="true"
+            />
+            <!-- Toggle password visibility -->
+            <button
+              id="toggle-password"
+              class="input-icon"
+              type="button"
+              aria-label="Show password"
+              tabindex="0"
+            >
+              <!-- Eye-closed icon (default — password hidden) -->
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+                   stroke-linejoin="round" aria-hidden="true">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                <line x1="1" y1="1" x2="23" y2="23"/>
+              </svg>
+            </button>
+          </div>
+          <p id="password-error" class="error-msg" role="alert" aria-live="polite"></p>
+        </div>
+
+        <!-- Remember Me + Forgot Password -->
+        <div class="extras-row">
+          <label class="remember-me" for="remember-me">
+            <input
+              id="remember-me"
+              type="checkbox"
+              checked
+              aria-label="Remember me"
+            />
+            <span>Remember Me</span>
+          </label>
+          <a
+            id="forgot-link"
+            href="forgot-password.html"
+            class="forgot-link"
+            aria-label="Forgot your password?"
+          >Forgot Password?</a>
+        </div>
+
+        <!-- Login Button -->
+        <div class="form-group mb-0">
+          <button
+            id="login-btn"
+            class="btn-primary"
+            type="submit"
+            aria-label="Login to your account"
+          >
+            Login
+          </button>
+        </div>
+
+      </form>
+
+      <!-- Divider -->
+      <div class="divider" aria-hidden="true">
+        <span>or continue with</span>
+      </div>
+
+      <!-- Microsoft Button -->
+      <button
+        id="ms-btn"
+        class="btn-microsoft"
+        type="button"
+        aria-label="Sign in with Microsoft"
+      >
+        <!-- Microsoft logo -->
+        <div class="ms-logo" aria-hidden="true">
+          <span class="ms-red"></span>
+          <span class="ms-green"></span>
+          <span class="ms-blue"></span>
+          <span class="ms-yellow"></span>
+        </div>
+        Sign in with Microsoft
+      </button>
+
+      <!-- Create Account -->
+      <p class="create-account">
+        Don't have an account?&nbsp;<a href="#" id="create-account-link" aria-label="Create a new account">Create Account</a>
+      </p>
+
+    </div>
+    <!-- /form-card -->
+
+  </div>
+  <!-- /page-wrapper -->
+
+  <script src="js/script.js"></script>
+</body>
+</html>

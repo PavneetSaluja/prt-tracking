@@ -263,10 +263,17 @@ const saveRolePermissions = (perms) => {
   localStorage.setItem("pulse_role_perms", JSON.stringify(perms));
 };
 
+const normalizeRole = (role) => {
+  if (!role) return "";
+  const r = role.toLowerCase();
+  if (r === 'pm') return 'project manager';
+  if (r === 'resource') return 'resources';
+  return r;
+};
+
 const hasPermission = (role, permissionKey) => {
-  if (role === "Admin") return true;
   const perms = loadRolePermissions();
-  const roleKey = role.toLowerCase();
+  const roleKey = normalizeRole(role);
   if (perms[roleKey] && perms[roleKey][permissionKey] !== undefined) {
     return perms[roleKey][permissionKey];
   }
@@ -726,7 +733,7 @@ function Access({ show }) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState("");
 
-  const rolesList = ["finance", "hr", "project manager", "sales", "resources"];
+  const rolesList = ["admin", "finance", "hr", "project manager", "sales", "resources"];
   const activePerms = rolePerms[selectedRole] || {};
 
   const handleToggle = (permKey) => {
@@ -1229,8 +1236,7 @@ function Dashboard({ currentUser, onLogout, toast, show }) {
   }, []);
 
   const hasPerm = (permissionKey) => {
-    if (currentUser.role === "Admin") return true;
-    const roleKey = currentUser.role.toLowerCase();
+    const roleKey = normalizeRole(currentUser.role);
     return rolePerms[roleKey]?.[permissionKey] ?? DEFAULT_ROLE_PERMS[roleKey]?.[permissionKey] ?? false;
   };
 

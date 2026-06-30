@@ -36,13 +36,13 @@ const td = {
   verticalAlign: "middle"
 };
 
-const ROLES = ["Resource", "PM", "COO", "Admin", "Sales"];
+const ROLES = ["Unassigned", "Resource", "PM", "COO", "Admin", "Sales", "Finance", "HR"];
 const DEPTS = ["Delivery", "Product Design", "Engineering", "Quality", "Sales", "Executive", "Operations"];
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 // ── Person Detail Drawer ───────────────────────────────────────────────
 
-function PersonDetailDrawer({ p, onClose, getProjectName, timesheets, onExport }) {
+function PersonDetailDrawer({ p, onClose, getProjectName, timesheets }) {
   const isRes = p.role === "Resource";
   
   // Aggregate work logs dynamically from timesheets
@@ -102,9 +102,6 @@ function PersonDetailDrawer({ p, onClose, getProjectName, timesheets, onExport }
             <div style={{ fontSize: 11.5, color: C.ink3 }} className="num">{p.empId}</div>
           </div>
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-            <button className="ghost" onClick={() => onExport(p)} title="Export Timesheet" style={{ border: "none", background: "none", borderRadius: 6, padding: 5, cursor: "pointer", display: "flex" }}>
-              <Icon n="download" size={15} color={C.ink2} />
-            </button>
             <button className="ghost" onClick={onClose} style={{ border: "none", background: "none", borderRadius: 6, padding: 5, cursor: "pointer", display: "flex" }}>
               <Icon n="x" size={16} color={C.ink2} />
             </button>
@@ -171,13 +168,13 @@ function PersonDetailDrawer({ p, onClose, getProjectName, timesheets, onExport }
 
 // ── Employee Add/Edit Form Modal ───────────────────────────────────────
 
-function EmployeeForm({ emp, onClose, onSave }) {
+export function EmployeeForm({ emp, onClose, onSave }) {
   const [f, setF] = useState({
     name: emp ? emp.name : "",
     empId: emp ? emp.empId : "EMP-" + (Math.floor(Math.random() * 9000) + 1000),
     designation: emp ? emp.designation : "",
     dept: emp ? emp.dept : "Delivery",
-    role: emp ? emp.role : "Resource",
+    role: emp ? emp.role : "Unassigned",
     email: emp ? emp.email : "",
     manager: emp ? emp.manager : "Sarah Jenkins",
     capacity: emp ? emp.capacity : 40,
@@ -269,84 +266,14 @@ function EmployeeForm({ emp, onClose, onSave }) {
 // ── People Manager ─────────────────────────────────────────────────────
 
 export default function People({ showToast }) {
-  const { people, addEmployee, updateEmployee, timesheets, projects } = useDatabase();
+  const { people, addEmployee, updateEmployee, timesheets, projects, bulkAssignRoles } = useDatabase();
   const [q, setQ] = useState("");
   const [dept, setDept] = useState("All departments");
   const [role, setRole] = useState("All roles");
   const [status, setStatus] = useState("All statuses");
   const [activeForm, setActiveForm] = useState(null); // 'add' | employee_object_to_edit
   const [viewPerson, setViewPerson] = useState(null); // employee object
-  const [exportEmployee, setExportEmployee] = useState(null); // 'all' | employee_object | null
-  const [exportMonth, setExportMonth] = useState("June 2026");
-
-  const handleExportTimesheets = () => {
-    const monthMap = {
-      "January": 0, "February": 1, "March": 2, "April": 3, "May": 4, "June": 5,
-      "July": 6, "August": 7, "September": 8, "October": 9, "November": 10, "December": 11
-    };
-    const [monthStr, yearStr] = exportMonth.split(" ");
-    const targetMonth = monthMap[monthStr];
-    const targetYear = parseInt(yearStr, 10);
-
-    const getEmpName = (empId) => people.find(p => p.id === empId)?.name || empId;
-    const getEmpIdStr = (empId) => people.find(p => p.id === empId)?.empId || "";
-    const getProjName = (projId) => projects.find(p => p.id === projId)?.name || projId;
-    
-    const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-    
-    const csvRows = [
-      ["Employee ID", "Employee Name", "Project Name", "Date", "Day", "Hours Logged", "Work Description", "Timesheet Status"]
-    ];
-
-    timesheets.forEach(ts => {
-      if (exportEmployee !== "all" && ts.employeeId !== exportEmployee.id) return;
-      Object.keys(ts.entries).forEach(projId => {
-        ts.entries[projId].forEach((dayLog, dayIdx) => {
-          if (dayLog && dayLog.h > 0) {
-            const entryDate = new Date("2026-06-24");
-            entryDate.setDate(entryDate.getDate() + ts.weekIdx * 7 + dayIdx);
-            
-            if (entryDate.getMonth() === targetMonth && entryDate.getFullYear() === targetYear) {
-              const formattedDate = entryDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-              csvRows.push([
-                getEmpIdStr(ts.employeeId),
-                getEmpName(ts.employeeId),
-                getProjName(projId),
-                formattedDate,
-                DAYS[dayIdx],
-                dayLog.h.toString(),
-                (dayLog.d || "").replace(/"/g, '""'),
-                ts.status
-              ]);
-            }
-          }
-        });
-      });
-    });
-
-    if (csvRows.length === 1) {
-      const displayTargetName = exportEmployee === "all" ? "any resources" : exportEmployee.name;
-      showToast(`No timesheet entries found for ${displayTargetName} in ${exportMonth}`, "err");
-      return;
-    }
-
-    const csvContent = "\uFEFF" + csvRows.map(e => e.map(val => `"${val}"`).join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    const filename = exportEmployee === "all"
-      ? `timesheets_export_${exportMonth.replace(" ", "_").toLowerCase()}.csv`
-      : `timesheet_${exportEmployee.id}_${exportMonth.replace(" ", "_").toLowerCase()}.csv`;
-    link.setAttribute("download", filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    const displayTargetNameMsg = exportEmployee === "all" ? "All active resources" : exportEmployee.name;
-    showToast(`Timesheets exported for ${displayTargetNameMsg} (${exportMonth})`);
-    setExportEmployee(null);
-  };
+  const [showBulkAssign, setShowBulkAssign] = useState(false);
 
   const depts = ["All departments", ...Array.from(new Set(people.map(p => p.dept)))];
   
@@ -422,11 +349,8 @@ export default function People({ showToast }) {
 
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginLeft: "auto" }}>
           <span style={{ fontSize: 12, color: C.ink3 }}>{list.length} displayed</span>
-          <button className="ghost" style={{ ...btnGhost, padding: "7px 12px" }} onClick={() => setExportEmployee("all")}>
-            <Icon n="download" size={14} color={C.ink2} /> Export Timesheets
-          </button>
-          <button className="primary" style={{ ...btnPrimary, padding: "7px 12px" }} onClick={() => setActiveForm('add')}>
-            <Icon n="plus" size={14} color="#fff" /> Add employee
+          <button className="primary" style={{ ...btnPrimary, padding: "7px 12px" }} onClick={() => setShowBulkAssign(true)}>
+            <Icon n="users" size={14} color="#fff" /> Assign Role
           </button>
         </div>
       </div>
@@ -482,9 +406,6 @@ export default function People({ showToast }) {
                         <button title="View Detail" className="ghost" onClick={() => setViewPerson(p)} style={{ border: `1px solid ${C.line}`, background: C.surface, borderRadius: 6, padding: 6, cursor: "pointer", marginRight: 6 }}>
                           <Icon n="eye" size={13} color={C.ink2} />
                         </button>
-                        <button title="Export Timesheet" className="ghost" onClick={() => setExportEmployee(p)} style={{ border: `1px solid ${C.line}`, background: C.surface, borderRadius: 6, padding: 6, cursor: "pointer", marginRight: 6 }}>
-                          <Icon n="download" size={13} color={C.ink2} />
-                        </button>
                         <button title="Edit Employee" className="ghost" onClick={() => setActiveForm(p)} style={{ border: `1px solid ${C.line}`, background: C.surface, borderRadius: 6, padding: 6, cursor: "pointer", marginRight: 6 }}>
                           <Icon n="edit" size={13} color={C.ink2} />
                         </button>
@@ -517,7 +438,6 @@ export default function People({ showToast }) {
           onClose={() => setViewPerson(null)} 
           getProjectName={getProjectName}
           timesheets={timesheets}
-          onExport={(emp) => setExportEmployee(emp)}
         />
       )}
 
@@ -530,37 +450,285 @@ export default function People({ showToast }) {
         />
       )}
 
-      {/* Export Monthly Timesheets Modal */}
-      {exportEmployee && (
-        <Modal
-          title={exportEmployee === "all" ? "Export resource timesheets" : `Export timesheet: ${exportEmployee.name}`}
-          onClose={() => setExportEmployee(null)}
+      {/* Bulk Role Assignment Modal */}
+      {showBulkAssign && (
+        <BulkRoleAssignmentModal
+          people={people}
+          onClose={() => setShowBulkAssign(false)}
+          onAssign={(empIds, newRole) => {
+            bulkAssignRoles(empIds, newRole);
+            showToast(`Assigned role ${newRole} to ${empIds.length} employees`);
+            setShowBulkAssign(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Bulk Role Assignment Modal Component ───────────────────────────────
+
+function BulkRoleAssignmentModal({ people, onClose, onAssign }) {
+  const [search, setSearch] = useState("");
+  const [deptFilter, setDeptFilter] = useState("All departments");
+  const [designationFilter, setDesignationFilter] = useState("All designations");
+  const [statusFilter, setStatusFilter] = useState("All statuses");
+  
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [targetRole, setTargetRole] = useState("");
+  const [confirmError, setConfirmError] = useState("");
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const depts = ["All departments", ...Array.from(new Set(people.map(p => p.dept)))];
+  const designations = ["All designations", ...Array.from(new Set(people.map(p => p.designation).filter(Boolean)))];
+  const assignableRoles = ["Resource", "PM", "Admin", "Sales", "Finance", "HR"];
+
+  // Filtered employees list (only unassigned roles)
+  const filteredList = people.filter(p => {
+    if (p.role !== "Unassigned") return false;
+    const matchesSearch = (p.name + p.empId + p.designation + p.dept).toLowerCase().includes(search.toLowerCase());
+    const matchesDept = deptFilter === "All departments" || p.dept === deptFilter;
+    const matchesDesig = designationFilter === "All designations" || p.designation === designationFilter;
+    const matchesStatus = statusFilter === "All statuses" || p.status === statusFilter;
+    return matchesSearch && matchesDept && matchesDesig && matchesStatus;
+  });
+
+  const handleSelectRow = (id) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    const allFilteredIds = filteredList.map(p => p.id);
+    const allSelected = allFilteredIds.every(id => selectedIds.includes(id));
+    if (allSelected) {
+      setSelectedIds(prev => prev.filter(id => !allFilteredIds.includes(id)));
+    } else {
+      setSelectedIds(prev => Array.from(new Set([...prev, ...allFilteredIds])));
+    }
+  };
+
+  const handleClearFilters = () => {
+    setSearch("");
+    setDeptFilter("All departments");
+    setDesignationFilter("All designations");
+    setStatusFilter("All statuses");
+  };
+
+  const handleAssignClick = () => {
+    if (selectedIds.length === 0) {
+      setConfirmError("No employee selected");
+      return;
+    }
+    if (!targetRole) {
+      setConfirmError("No role selected");
+      return;
+    }
+
+    // Validation: Assignment to inactive employees
+    const hasInactive = selectedIds.some(id => {
+      const emp = people.find(p => p.id === id);
+      return emp && emp.status === "Inactive";
+    });
+    if (hasInactive) {
+      setConfirmError("Cannot assign roles to inactive employees.");
+      return;
+    }
+
+    // Validation: Duplicate role assignments
+    const allHaveSameRole = selectedIds.every(id => {
+      const emp = people.find(p => p.id === id);
+      return emp && emp.role === targetRole;
+    });
+    if (allHaveSameRole) {
+      setConfirmError(`Selected employees are already assigned to the ${targetRole} role.`);
+      return;
+    }
+
+    setConfirmError("");
+    setShowConfirm(true);
+  };
+
+  const handleConfirmSubmit = () => {
+    onAssign(selectedIds, targetRole);
+    setShowConfirm(false);
+  };
+
+  return (
+    <Modal title="Bulk Role Assignment" onClose={onClose} w={960}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        
+        {/* Filters Header */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", background: "#FBFBF9", padding: 12, borderRadius: 8, border: `1px solid ${C.line}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, border: `1px solid ${C.line}`, borderRadius: 6, padding: "5px 8px", background: C.surface, flex: 1, minWidth: 160 }}>
+            <Icon n="search" size={13} color={C.ink3} />
+            <input 
+              value={search} 
+              onChange={e => setSearch(e.target.value)} 
+              placeholder="Search by name, ID..." 
+              style={{ border: "none", outline: "none", fontSize: 12, color: C.ink, background: "transparent", width: "100%" }} 
+            />
+          </div>
+          
+          <select style={{ border: `1px solid ${C.line}`, borderRadius: 6, padding: "5px 8px", fontSize: 12, background: C.surface }} value={deptFilter} onChange={e => setDeptFilter(e.target.value)}>
+            {depts.map(d => <option key={d}>{d}</option>)}
+          </select>
+
+          <select style={{ border: `1px solid ${C.line}`, borderRadius: 6, padding: "5px 8px", fontSize: 12, background: C.surface }} value={designationFilter} onChange={e => setDesignationFilter(e.target.value)}>
+            {designations.map(d => <option key={d}>{d}</option>)}
+          </select>
+
+
+
+          <select style={{ border: `1px solid ${C.line}`, borderRadius: 6, padding: "5px 8px", fontSize: 12, background: C.surface }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+            <option value="All statuses">All Statuses</option>
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+          </select>
+
+          <button className="ghost" style={{ ...btnGhost, padding: "5px 10px", fontSize: 12 }} onClick={handleClearFilters}>
+            Clear Filters
+          </button>
+        </div>
+
+        {/* Directory Table inside Modal */}
+        <div style={{ maxHeight: 360, overflowY: "auto", border: `1px solid ${C.line}`, borderRadius: 8 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead style={{ position: "sticky", top: 0, zIndex: 10, background: "#FBFBF9" }}>
+              <tr>
+                <th style={{ ...th, width: 40, textAlign: "center" }}>
+                  <input 
+                    type="checkbox" 
+                    checked={filteredList.length > 0 && filteredList.every(p => selectedIds.includes(p.id))} 
+                    onChange={handleSelectAll} 
+                    style={{ cursor: "pointer" }}
+                  />
+                </th>
+                <th style={th}>Employee ID</th>
+                <th style={th}>Employee Name</th>
+                <th style={th}>Department</th>
+                <th style={th}>Designation</th>
+                <th style={th}>Current Role</th>
+                <th style={th}>Reporting Manager</th>
+                <th style={th}>Employment Status</th>
+                <th style={th}>Assigned Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredList.length === 0 ? (
+                <tr>
+                  <td colSpan={9} style={{ padding: 24, textAlign: "center" }}><Empty msg="No employees found." /></td>
+                </tr>
+              ) : (
+                filteredList.map(p => {
+                  const isSelected = selectedIds.includes(p.id);
+                  const initials = p.name.split(" ").map(n => n[0]).join("");
+                  
+                  return (
+                    <tr 
+                      key={p.id} 
+                      className="row" 
+                      style={{ 
+                        background: isSelected ? C.accentSoft : "none", 
+                        opacity: p.status === "Inactive" ? 0.6 : 1,
+                        borderBottom: `1px solid ${C.line}`,
+                        cursor: "pointer"
+                      }}
+                      onClick={() => handleSelectRow(p.id)}
+                    >
+                      <td style={{ ...td, textAlign: "center" }} onClick={e => e.stopPropagation()}>
+                        <input 
+                          type="checkbox" 
+                          checked={isSelected} 
+                          onChange={() => handleSelectRow(p.id)} 
+                          style={{ cursor: "pointer" }}
+                        />
+                      </td>
+                      <td style={{ ...td, fontWeight: 500 }} className="num">{p.empId}</td>
+                      <td style={td}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ width: 24, height: 24, borderRadius: 99, background: C.lineStrong, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 600, color: C.ink }}>
+                            {initials}
+                          </div>
+                          <span style={{ fontWeight: 500, color: C.ink }}>{p.name}</span>
+                        </div>
+                      </td>
+                      <td style={td}>{p.dept}</td>
+                      <td style={td}>{p.designation}</td>
+                      <td style={td}><Tag s={p.role} strong /></td>
+                      <td style={td}>{p.manager}</td>
+                      <td style={td}><Tag s={p.status} /></td>
+                      <td style={td} className="num">{p.joined}</td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Validation error display */}
+        {confirmError && (
+          <div style={{ padding: "8px 12px", background: C.err + "15", border: `1px solid ${C.err}`, color: C.err, borderRadius: 6, fontSize: 12.5, display: "flex", alignItems: "center", gap: 8 }}>
+            <Icon n="alert" size={14} color={C.err} />
+            <span>{confirmError}</span>
+          </div>
+        )}
+
+        {/* Footer actions for Bulk Assignment */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: `1px solid ${C.line}`, paddingTop: 12, marginTop: 4 }}>
+          <div style={{ fontSize: 13, color: C.ink2 }}>
+            <strong className="num" style={{ color: C.ink }}>{selectedIds.length}</strong> employees selected
+          </div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <span style={{ fontSize: 12.5, color: C.ink2 }}>Target Role:</span>
+            <select 
+              style={{ ...inputStyle, width: 160, padding: "6px 10px", fontSize: 12.5 }}
+              value={targetRole}
+              onChange={e => setTargetRole(e.target.value)}
+            >
+              <option value="">Choose Role...</option>
+              {assignableRoles.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+            <button className="primary" style={btnPrimary} onClick={handleAssignClick} disabled={selectedIds.length === 0 || !targetRole}>
+              Assign Selected Roles
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      {/* Confirmation Modal */}
+      {showConfirm && (
+        <Modal 
+          title="Confirm Role Assignment" 
+          onClose={() => setShowConfirm(false)}
           footer={
             <>
-              <button className="demo" style={btnGhost} onClick={() => setExportEmployee(null)}>Cancel</button>
-              <button className="primary" style={btnPrimary} onClick={handleExportTimesheets}>
-                <Icon n="download" size={14} color="#fff" /> Export CSV
+              <button className="demo" style={btnGhost} onClick={() => setShowConfirm(false)}>Cancel</button>
+              <button className="primary" style={btnPrimary} onClick={handleConfirmSubmit}>
+                Confirm Assignment
               </button>
             </>
           }
         >
-          <div style={{ fontSize: 13, color: C.ink, marginBottom: 14 }}>
-            Select the month to export timesheet logs for {exportEmployee === "all" ? "all active resources" : exportEmployee.name}:
-          </div>
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ fontSize: 12, color: C.ink2, marginBottom: 6 }}>Select Month</div>
-            <select
-              style={inputStyle}
-              value={exportMonth}
-              onChange={e => setExportMonth(e.target.value)}
-            >
-              {["June 2026", "July 2026", "August 2026"].map(m => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <Icon n="alert" size={20} color={C.warn} style={{ marginTop: 2 }} />
+              <div>
+                <h4 style={{ margin: "0 0 6px", fontSize: 14, fontWeight: 600, color: C.ink }}>Bulk Update Permissions</h4>
+                <p style={{ margin: 0, fontSize: 13, color: C.ink2, lineHeight: 1.4 }}>
+                  You are assigning the role of <strong>{targetRole}</strong> to <strong>{selectedIds.length}</strong> selected employees.
+                </p>
+                <p style={{ margin: "8px 0 0", fontSize: 12.5, color: C.ink3, lineHeight: 1.4 }}>
+                  This will update their access control policies and permissions immediately.
+                </p>
+              </div>
+            </div>
           </div>
         </Modal>
       )}
-    </div>
+    </Modal>
   );
 }

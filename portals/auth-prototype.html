@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Learnify Auth Prototype</title>
+  <meta name="description" content="Learnify auth flow — Verify Domain, Login, Forgot Password" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --primary: #074ACF; --primary-hover: #0640b8; --primary-active: #0537a0;
+      --top-bg: #F0F6FC; --white: #FFFFFF; --text-main: #1A2942;
+      --text-sub: #667085; --border: #D8E2F0; --placeholder: #98A2B3;
+      --shadow: rgba(16,24,40,0.06); --font: 'Poppins', sans-serif;
+      --r-btn: 16px; --r-input: 16px; --r-card: 28px; --h-btn: 56px; --h-input: 56px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { min-height: 100vh; font-family: var(--font); background: var(--top-bg); color: var(--text-main); -webkit-font-smoothing: antialiased; }
+    .screen { display: none; }
+    .screen.active { display: flex; }
+    .page-wrapper { flex-direction: column; align-items: center; min-height: 100vh; background: var(--top-bg); position: relative; overflow: hidden; }
+    .page-wrapper::before, .page-wrapper::after { content: ''; position: absolute; border-radius: 50%; pointer-events: none; }
+    .page-wrapper::before { width: 380px; height: 380px; bottom: 160px; left: -140px; background: rgba(7,74,207,0.06); }
+    .page-wrapper::after  { width: 220px; height: 220px; top: 60px; right: -80px; background: rgba(7,74,207,0.04); }
+    .top-section { width: 100%; max-width: 480px; padding: 0 24px; display: flex; flex-direction: column; align-items: center; position: relative; z-index: 1; }
+    .lang-bar { width: 100%; display: flex; justify-content: flex-end; padding: 20px 0 0; }
+    .lang-btn { display: inline-flex; align-items: center; gap: 6px; border: 1.5px solid var(--border); border-radius: 20px; background: var(--white); padding: 6px 14px; font-family: var(--font); font-size: 13px; font-weight: 500; color: var(--text-main); cursor: pointer; transition: border-color .2s; outline: none; }
+    .lang-btn:hover { border-color: var(--primary); }
+    .lang-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+    .logo-wrapper { margin-top: 28px; width: 100%; max-width: 340px; display: flex; align-items: center; justify-content: center; }
+    .logo-icon { width: 48px; height: 48px; border: 2px solid var(--primary); border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--primary); }
+    .logo-label { font-size: 14px; font-weight: 700; color: var(--primary); display: block; line-height: 1.2; }
+    .logo-sub   { font-size: 11.5px; color: var(--text-sub); display: block; line-height: 1.4; }
+    .branding-heading { margin-top: 28px; text-align: center; }
+    .branding-heading h1 { font-size: 30px; font-weight: 700; color: var(--text-main); line-height: 1.2; }
+    .branding-heading h1 .highlight { color: var(--text-main); display: block; }
+    .branding-desc { margin-top: 12px; font-size: 14px; color: var(--text-sub); text-align: center; line-height: 1.65; }
+    .form-card { width: 100%; max-width: 480px; background: var(--white); border-radius: var(--r-card) var(--r-card) 0 0; box-shadow: 0 -4px 24px var(--shadow); padding: 36px 32px 40px; margin-top: 32px; position: relative; z-index: 2; flex: 1; }
+    .card-heading { text-align: center; margin-bottom: 6px; }
+    .card-heading h2 { font-size: 20px; font-weight: 700; color: var(--text-main); }
+    .card-desc { font-size: 13.5px; color: var(--text-sub); text-align: center; line-height: 1.6; margin-bottom: 24px; }
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 13px; font-weight: 500; color: var(--text-main); margin-bottom: 6px; }
+    .input-wrapper { position: relative; display: flex; align-items: stretch; border: 1.5px solid var(--border); border-radius: var(--r-input); background: var(--white); height: var(--h-input); transition: border-color .2s, box-shadow .2s; overflow: hidden; }
+    .input-wrapper:focus-within { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(7,74,207,.1); }
+    .input-wrapper.input-error { border-color: #E53E3E; }
+    .input-wrapper.input-error:focus-within { box-shadow: 0 0 0 4px rgba(229,62,62,.1); }
+    .input-wrapper input { flex: 1; border: none; outline: none; background: transparent; font-family: var(--font); font-size: 14px; color: var(--text-main); padding: 0 16px; height: 100%; }
+    .input-wrapper input::placeholder { color: var(--placeholder); }
+    .input-icon { display: flex; align-items: center; justify-content: center; padding: 0 16px 0 0; color: var(--placeholder); background: transparent; border: none; outline: none; cursor: pointer; flex-shrink: 0; }
+    .input-icon:focus-visible { outline: 2px solid var(--primary); border-radius: 6px; }
+    .error-msg { font-size: 11.5px; color: #E53E3E; margin-top: 4px; display: none; }
+    .error-msg.visible { display: block; }
+    .domain-input-wrapper { display: flex; border: 1.5px solid var(--primary); border-radius: var(--r-input); overflow: hidden; height: var(--h-input); background: var(--white); transition: border-color .2s, box-shadow .2s; }
+    .domain-input-wrapper:focus-within { box-shadow: 0 0 0 4px rgba(7,74,207,.1); }
+    .domain-input-wrapper.input-error { border-color: #E53E3E; }
+    .domain-input-wrapper input { flex: 1; border: none; outline: none; background: transparent; font-family: var(--font); font-size: 14px; color: var(--text-main); padding: 0 16px; height: 100%; }
+    .domain-input-wrapper input::placeholder { color: var(--placeholder); }
+    .domain-suffix { display: flex; align-items: center; padding: 0 16px; border-left: 1.5px solid var(--border); font-size: 13.5px; font-weight: 500; color: var(--text-sub); white-space: nowrap; flex-shrink: 0; }
+    .extras-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; margin-top: 4px; }
+    .remember-me { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .remember-me input[type="checkbox"] { appearance: none; -webkit-appearance: none; width: 18px; height: 18px; border: 1.5px solid var(--border); border-radius: 5px; background: var(--white); cursor: pointer; position: relative; flex-shrink: 0; transition: background .2s, border-color .2s; }
+    .remember-me input[type="checkbox"]:checked { background: var(--primary); border-color: var(--primary); }
+    .remember-me input[type="checkbox"]:checked::after { content: ''; position: absolute; left: 4px; top: 1px; width: 6px; height: 10px; border: 2px solid #fff; border-top: none; border-left: none; transform: rotate(45deg); }
+    .remember-me input[type="checkbox"]:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+    .remember-me span { font-size: 13px; color: var(--text-main); }
+    .forgot-link { font-size: 13px; font-weight: 500; color: #374151; text-decoration: none; transition: opacity .2s; cursor: pointer; }
+    .forgot-link:hover { opacity: .8; text-decoration: underline; }
+    .btn-primary { display: flex; align-items: center; justify-content: center; width: 100%; height: var(--h-btn); background: var(--primary); color: var(--white); border: none; border-radius: var(--r-btn); font-family: var(--font); font-size: 15px; font-weight: 600; cursor: pointer; transition: background .2s, transform .1s; outline: none; letter-spacing: .01em; }
+    .btn-primary:hover  { background: var(--primary-hover); }
+    .btn-primary:active { background: var(--primary-active); transform: scale(.98); }
+    .btn-primary:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+    .btn-primary:disabled { opacity: .7; cursor: not-allowed; transform: none; }
+    .divider { display: flex; align-items: center; gap: 12px; margin: 20px 0; }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .divider span { font-size: 13px; color: var(--text-sub); white-space: nowrap; }
+    .btn-microsoft { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; height: var(--h-btn); background: var(--white); color: #111827; border: 1.5px solid var(--border); border-radius: var(--r-btn); font-family: var(--font); font-size: 14.5px; font-weight: 600; cursor: pointer; transition: background .2s, border-color .2s; outline: none; }
+    .btn-microsoft:hover { background: #f5f8ff; border-color: var(--primary); }
+    .btn-microsoft:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+    .ms-logo { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5px; width: 20px; height: 20px; flex-shrink: 0; }
+    .ms-logo span { display: block; width: 9px; height: 9px; }
+    .ms-red    { background: #F25022; } .ms-green { background: #7FBA00; }
+    .ms-blue   { background: #00A4EF; } .ms-yellow{ background: #FFB900; }
+    .create-account { text-align: center; margin-top: 20px; font-size: 13px; color: var(--text-sub); }
+    .create-account a { color: #111827; font-weight: 600; text-decoration: none; cursor: pointer; }
+    .create-account a:hover { text-decoration: underline; }
+    .back-link { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 24px; font-size: 14px; font-weight: 600; color: #111827; text-decoration: none; cursor: pointer; transition: opacity .2s; }
+    .back-link:hover { opacity: .8; text-decoration: underline; }
+    .back-link:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+    .forgot-desc { font-size: 13.5px; color: var(--text-sub); text-align: center; line-height: 1.7; margin-bottom: 28px; }
+    .mt-24 { margin-top: 24px; } .mb-0 { margin-bottom: 0; }
+    @media (max-width: 520px) {
+      .form-card { padding: 28px 20px 36px; border-radius: 24px 24px 0 0; }
+      .logo-wrapper { max-width: 280px; }
+      .branding-heading h1 { font-size: 26px; }
+      .branding-desc { font-size: 13px; }
+      .top-section { padding: 0 16px; }
+    }
+    @media (min-width: 769px) {
+      body { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #e8eef7; }
+      .page-wrapper { max-width: 480px; width: 100%; min-height: 100vh; border-radius: 24px; overflow: hidden; box-shadow: 0 8px 48px rgba(16,24,40,.12); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- SCREEN 1: Verify Domain -->
+<div id="screen-verify" class="screen active page-wrapper" role="main" aria-label="Verify Workspace">
+  <section class="top-section" aria-label="Branding">
+    <div class="lang-bar">
+      <button class="lang-btn" aria-label="Select language: English" type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        English
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+    </div>
+    <div class="logo-wrapper" role="img" aria-label="Learnify by HabileLabs logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 90" role="img" aria-label="Learnify by HabileLabs" style="width:100%;max-width:320px;height:auto;">
+  <defs>
+    <linearGradient id="capG" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7B5CF0"/>
+      <stop offset="100%" stop-color="#4DB8FF"/>
+    </linearGradient>
+    <linearGradient id="capG2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5E8FFF"/>
+      <stop offset="100%" stop-color="#A5D8FF"/>
+    </linearGradient>
+  </defs>
+  <!-- Person head -->
+  <circle cx="44" cy="12" r="10" fill="#0F1D3A"/>
+  <!-- Mortarboard top plate -->
+  <polygon points="44,28 80,44 44,60 8,44" fill="url(#capG)"/>
+  <!-- Cap left wing -->
+  <path d="M8,44 Q8,64 26,70 Q35,73 44,70 L44,60 Q26,66 10,58 Z" fill="url(#capG)"/>
+  <!-- Cap right wing -->
+  <path d="M80,44 Q80,64 62,70 Q53,73 44,70 L44,60 Q62,66 78,58 Z" fill="url(#capG2)"/>
+  <!-- White stripe highlight on cap -->
+  <line x1="24" y1="51" x2="44" y2="60" stroke="white" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+  <!-- Purple tassel line -->
+  <line x1="44" y1="60" x2="44" y2="72" stroke="#8B5CF6" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- "Learnify" text -->
+  <text x="100" y="56" font-family="Poppins,sans-serif" font-size="48" font-weight="700" fill="#0F1D3A" letter-spacing="-1">Learnify</text>
+  <!-- Blue accent square (replaces 'i' dot) -->
+  <rect x="231" y="9" width="9" height="9" rx="1.5" fill="#4A90E2"/>
+  <!-- "BY HABILELABS" -->
+  <text x="103" y="78" font-family="Poppins,sans-serif" font-size="13" font-weight="500" fill="#6B7280" letter-spacing="4">BY HABILELABS</text>
+</svg>
+    </div>
+    <div class="branding-heading"><h1>Welcome to Your<span class="highlight">Learning Platform</span></h1></div>
+    <p class="branding-desc">A complete solution for courses, assessments,<br/>and certificates — all in one place.</p>
+  </section>
+  <div class="form-card">
+    <div class="card-heading"><h2>Verify Your Workspace</h2></div>
+    <p class="card-desc">Enter your organisation's workspace to continue.</p>
+    <form id="verify-form" novalidate>
+      <div class="form-group">
+        <label class="form-label" for="domain-input">Domain name</label>
+        <div id="domain-wrapper" class="domain-input-wrapper">
+          <input id="domain-input" type="text" placeholder="Domain name" autocomplete="off" spellcheck="false" aria-describedby="domain-error" aria-required="true"/>
+          <span class="domain-suffix">.app.learnify.ing</span>
+        </div>
+        <p id="domain-error" class="error-msg" role="alert" aria-live="polite"></p>
+      </div>
+      <div class="form-group mb-0 mt-24">
+        <button id="continue-btn" class="btn-primary" type="submit">Continue</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- SCREEN 2: Login -->
+<div id="screen-login" class="screen page-wrapper" role="main" aria-label="Login">
+  <section class="top-section" aria-label="Branding">
+    <div class="lang-bar">
+      <button class="lang-btn" aria-label="Select language: English" type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        English
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+    </div>
+    <div class="logo-wrapper" role="img" aria-label="Learnify by HabileLabs logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 90" role="img" aria-label="Learnify by HabileLabs" style="width:100%;max-width:320px;height:auto;">
+  <defs>
+    <linearGradient id="capG" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7B5CF0"/>
+      <stop offset="100%" stop-color="#4DB8FF"/>
+    </linearGradient>
+    <linearGradient id="capG2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5E8FFF"/>
+      <stop offset="100%" stop-color="#A5D8FF"/>
+    </linearGradient>
+  </defs>
+  <!-- Person head -->
+  <circle cx="44" cy="12" r="10" fill="#0F1D3A"/>
+  <!-- Mortarboard top plate -->
+  <polygon points="44,28 80,44 44,60 8,44" fill="url(#capG)"/>
+  <!-- Cap left wing -->
+  <path d="M8,44 Q8,64 26,70 Q35,73 44,70 L44,60 Q26,66 10,58 Z" fill="url(#capG)"/>
+  <!-- Cap right wing -->
+  <path d="M80,44 Q80,64 62,70 Q53,73 44,70 L44,60 Q62,66 78,58 Z" fill="url(#capG2)"/>
+  <!-- White stripe highlight on cap -->
+  <line x1="24" y1="51" x2="44" y2="60" stroke="white" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+  <!-- Purple tassel line -->
+  <line x1="44" y1="60" x2="44" y2="72" stroke="#8B5CF6" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- "Learnify" text -->
+  <text x="100" y="56" font-family="Poppins,sans-serif" font-size="48" font-weight="700" fill="#0F1D3A" letter-spacing="-1">Learnify</text>
+  <!-- Blue accent square (replaces 'i' dot) -->
+  <rect x="231" y="9" width="9" height="9" rx="1.5" fill="#4A90E2"/>
+  <!-- "BY HABILELABS" -->
+  <text x="103" y="78" font-family="Poppins,sans-serif" font-size="13" font-weight="500" fill="#6B7280" letter-spacing="4">BY HABILELABS</text>
+</svg>
+    </div>
+    <div class="branding-heading"><h1>Welcome to Your<span class="highlight">Learning Platform</span></h1></div>
+    <p class="branding-desc">A complete solution for courses, assessments,<br/>and certificates — all in one place.</p>
+  </section>
+  <div class="form-card">
+    <div class="card-heading"><h2>Login to Your Account</h2></div>
+    <p class="card-desc">Welcome back! Please sign in to continue.</p>
+    <form id="login-form" novalidate>
+      <div class="form-group">
+        <label class="form-label" for="email-input">Email / Mobile No.</label>
+        <div id="email-wrapper" class="input-wrapper">
+          <input id="email-input" type="text" placeholder="Email or Mobile No." autocomplete="username" inputmode="email" aria-describedby="email-error" aria-required="true"/>
+          <span class="input-icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          </span>
+        </div>
+        <p id="email-error" class="error-msg" role="alert" aria-live="polite"></p>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="password-input">Password</label>
+        <div id="password-wrapper" class="input-wrapper">
+          <input id="password-input" type="password" placeholder="Enter your password" autocomplete="current-password" aria-describedby="password-error" aria-required="true"/>
+          <button id="toggle-password" class="input-icon" type="button" aria-label="Show password">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          </button>
+        </div>
+        <p id="password-error" class="error-msg" role="alert" aria-live="polite"></p>
+      </div>
+      <div class="extras-row">
+        <label class="remember-me" for="remember-me">
+          <input id="remember-me" type="checkbox" checked aria-label="Remember me"/>
+          <span>Remember Me</span>
+        </label>
+        <span class="forgot-link" id="forgot-link" role="link" tabindex="0" aria-label="Forgot your password?">Forgot Password?</span>
+      </div>
+      <div class="form-group mb-0">
+        <button id="login-btn" class="btn-primary" type="submit">Login</button>
+      </div>
+    </form>
+    <div class="divider" aria-hidden="true"><span>or continue with</span></div>
+    <button id="ms-btn" class="btn-microsoft" type="button" aria-label="Sign in with Microsoft">
+      <div class="ms-logo" aria-hidden="true">
+        <span class="ms-red"></span><span class="ms-green"></span>
+        <span class="ms-blue"></span><span class="ms-yellow"></span>
+      </div>
+      Sign in with Microsoft
+    </button>
+    <p class="create-account">Don't have an account?&nbsp;<a id="create-account-link" tabindex="0">Create Account</a></p>
+  </div>
+</div>
+
+<!-- SCREEN 3: Forgot Password -->
+<div id="screen-forgot" class="screen page-wrapper" role="main" aria-label="Forgot Password">
+  <section class="top-section" aria-label="Branding">
+    <div class="lang-bar">
+      <button class="lang-btn" aria-label="Select language: English" type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+        English
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+    </div>
+    <div class="logo-wrapper" role="img" aria-label="Learnify by HabileLabs logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 90" role="img" aria-label="Learnify by HabileLabs" style="width:100%;max-width:320px;height:auto;">
+  <defs>
+    <linearGradient id="capG" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7B5CF0"/>
+      <stop offset="100%" stop-color="#4DB8FF"/>
+    </linearGradient>
+    <linearGradient id="capG2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5E8FFF"/>
+      <stop offset="100%" stop-color="#A5D8FF"/>
+    </linearGradient>
+  </defs>
+  <!-- Person head -->
+  <circle cx="44" cy="12" r="10" fill="#0F1D3A"/>
+  <!-- Mortarboard top plate -->
+  <polygon points="44,28 80,44 44,60 8,44" fill="url(#capG)"/>
+  <!-- Cap left wing -->
+  <path d="M8,44 Q8,64 26,70 Q35,73 44,70 L44,60 Q26,66 10,58 Z" fill="url(#capG)"/>
+  <!-- Cap right wing -->
+  <path d="M80,44 Q80,64 62,70 Q53,73 44,70 L44,60 Q62,66 78,58 Z" fill="url(#capG2)"/>
+  <!-- White stripe highlight on cap -->
+  <line x1="24" y1="51" x2="44" y2="60" stroke="white" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+  <!-- Purple tassel line -->
+  <line x1="44" y1="60" x2="44" y2="72" stroke="#8B5CF6" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- "Learnify" text -->
+  <text x="100" y="56" font-family="Poppins,sans-serif" font-size="48" font-weight="700" fill="#0F1D3A" letter-spacing="-1">Learnify</text>
+  <!-- Blue accent square (replaces 'i' dot) -->
+  <rect x="231" y="9" width="9" height="9" rx="1.5" fill="#4A90E2"/>
+  <!-- "BY HABILELABS" -->
+  <text x="103" y="78" font-family="Poppins,sans-serif" font-size="13" font-weight="500" fill="#6B7280" letter-spacing="4">BY HABILELABS</text>
+</svg>
+    </div>
+    <div class="branding-heading"><h1>Welcome to Your<span class="highlight">Learning Platform</span></h1></div>
+    <p class="branding-desc">A complete solution for courses, assessments,<br/>and certificates — all in one place.</p>
+  </section>
+  <div class="form-card">
+    <div class="card-heading"><h2>Forgot Password?</h2></div>
+    <p class="forgot-desc">Enter your email address or mobile number,<br/>and we'll send you a verification code<br/>to reset your password.</p>
+    <form id="forgot-form" novalidate>
+      <div class="form-group">
+        <label class="form-label" for="fp-email-input">Email / Mobile No.</label>
+        <div id="fp-email-wrapper" class="input-wrapper">
+          <input id="fp-email-input" type="text" placeholder="Email or Mobile No." autocomplete="username" inputmode="email" aria-describedby="fp-email-error" aria-required="true"/>
+          <span class="input-icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          </span>
+        </div>
+        <p id="fp-email-error" class="error-msg" role="alert" aria-live="polite"></p>
+      </div>
+      <div class="form-group mb-0 mt-24">
+        <button id="send-btn" class="btn-primary" type="submit">Send Verification Code</button>
+      </div>
+    </form>
+    <span id="back-link" class="back-link" role="link" tabindex="0" aria-label="Back to Login">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Back to Login
+    </span>
+  </div>
+</div>
+
+<script>
+  /* Utilities */
+  function isEmail(v)  { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()); }
+  function isMobile(v) { return /^\+?\d{10,15}$/.test(v.trim().replace(/\s/g,'')); }
+  function isValid(v)  { return isEmail(v) || isMobile(v); }
+  function showErr(w,m,t){ w.classList.add('input-error'); m.textContent=t; m.classList.add('visible'); }
+  function clearErr(w,m) { w.classList.remove('input-error'); m.classList.remove('visible'); }
+
+  /* Screen navigation */
+  var S = { verify: document.getElementById('screen-verify'), login: document.getElementById('screen-login'), forgot: document.getElementById('screen-forgot') };
+  function go(name){ Object.values(S).forEach(function(s){ s.classList.remove('active'); }); S[name].classList.add('active'); window.scrollTo(0,0); }
+
+  /* Screen 1 */
+  (function(){
+    var form=document.getElementById('verify-form'), inp=document.getElementById('domain-input'), wrap=document.getElementById('domain-wrapper'), err=document.getElementById('domain-error');
+    inp.addEventListener('input', function(){ clearErr(wrap,err); });
+    form.addEventListener('submit', function(e){ e.preventDefault(); if(!inp.value.trim()){ showErr(wrap,err,'Please enter your domain name.'); inp.focus(); return; } go('login'); });
+  })();
+
+  /* Screen 2 */
+  (function(){
+    var form=document.getElementById('login-form');
+    var ei=document.getElementById('email-input'), ew=document.getElementById('email-wrapper'), ee=document.getElementById('email-error');
+    var pi=document.getElementById('password-input'), pw=document.getElementById('password-wrapper'), pe=document.getElementById('password-error');
+    var tb=document.getElementById('toggle-password'), fl=document.getElementById('forgot-link'), lb=document.getElementById('login-btn');
+    tb.addEventListener('click', function(){
+      var h=pi.type==='password'; pi.type=h?'text':'password';
+      tb.setAttribute('aria-label', h?'Hide password':'Show password');
+      tb.innerHTML=h
+        ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
+        : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+    });
+    ei.addEventListener('input', function(){ clearErr(ew,ee); });
+    pi.addEventListener('input', function(){ clearErr(pw,pe); });
+    function goF(){ go('forgot'); }
+    fl.addEventListener('click', goF);
+    fl.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' ') goF(); });
+    form.addEventListener('submit', function(e){
+      e.preventDefault(); var ok=true;
+      var ev=ei.value.trim();
+      if(!ev){ showErr(ew,ee,'Please enter your email or mobile number.'); ok=false; }
+      else if(!isValid(ev)){ showErr(ew,ee,'Please enter a valid email or mobile number.'); ok=false; }
+      if(!pi.value){ showErr(pw,pe,'Please enter your password.'); ok=false; }
+      if(!ok) return;
+      lb.textContent='Logging in\u2026'; lb.disabled=true;
+      setTimeout(function(){ lb.textContent='Login'; lb.disabled=false; }, 1500);
+    });
+  })();
+
+  /* Screen 3 */
+  (function(){
+    var form=document.getElementById('forgot-form'), inp=document.getElementById('fp-email-input'), wrap=document.getElementById('fp-email-wrapper'), err=document.getElementById('fp-email-error');
+    var sb=document.getElementById('send-btn'), bl=document.getElementById('back-link');
+    inp.addEventListener('input', function(){ clearErr(wrap,err); });
+    form.addEventListener('submit', function(e){
+      e.preventDefault(); var v=inp.value.trim();
+      if(!v){ showErr(wrap,err,'Please enter your email or mobile number.'); inp.focus(); return; }
+      if(!isValid(v)){ showErr(wrap,err,'Please enter a valid email or mobile number.'); inp.focus(); return; }
+      sb.textContent='Sending\u2026'; sb.disabled=true;
+      setTimeout(function(){ sb.textContent='Send Verification Code'; sb.disabled=false; }, 1500);
+    });
+    function goL(){ go('login'); }
+    bl.addEventListener('click', goL);
+    bl.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' ') goL(); });
+  })();
+</script>
+</body>
+</html>

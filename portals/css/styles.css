@@ -1,0 +1,670 @@
+/* ============================================================
+   styles.css — Learnify Auth Prototype
+   ============================================================ */
+
+/* ---------- Google Font Import ---------- */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+/* ---------- CSS Reset & Base ---------- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ---------- Design Tokens ---------- */
+:root {
+  --color-primary:        #074ACF;
+  --color-primary-hover:  #0640b8;
+  --color-primary-active: #0537a0;
+  --color-top-bg:         #F0F6FC;
+  --color-white:          #FFFFFF;
+  --color-text-primary:   #1A2942;
+  --color-text-secondary: #667085;
+  --color-input-border:   #D8E2F0;
+  --color-placeholder:    #98A2B3;
+  --color-shadow:         rgba(16, 24, 40, 0.06);
+
+  --font-family: 'Poppins', sans-serif;
+
+  --radius-btn:   16px;
+  --radius-input: 16px;
+  --radius-card:  28px;
+
+  --btn-height:   56px;
+  --input-height: 56px;
+}
+
+/* ---------- Body ---------- */
+html, body {
+  min-height: 100vh;
+  font-family: var(--font-family);
+  background-color: var(--color-top-bg);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------- Page Wrapper ---------- */
+.page-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  background-color: var(--color-top-bg);
+  /* subtle decorative circles matching screenshot */
+  position: relative;
+  overflow: hidden;
+}
+
+/* ---------- Decorative Background Circles ---------- */
+.page-wrapper::before,
+.page-wrapper::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(7, 74, 207, 0.06);
+  pointer-events: none;
+}
+
+/* Large circle bottom-left */
+.page-wrapper::before {
+  width: 380px;
+  height: 380px;
+  bottom: 160px;
+  left: -140px;
+}
+
+/* Smaller circle upper area */
+.page-wrapper::after {
+  width: 220px;
+  height: 220px;
+  top: 60px;
+  right: -80px;
+  background: rgba(7, 74, 207, 0.04);
+}
+
+/* ---------- Top Branding Section ---------- */
+.top-section {
+  width: 100%;
+  max-width: 480px;
+  padding: 0 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+}
+
+/* ---------- Language Selector ---------- */
+.lang-bar {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  padding: 20px 0 0;
+}
+
+.lang-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1.5px solid var(--color-input-border);
+  border-radius: 20px;
+  background: var(--color-white);
+  padding: 6px 14px;
+  font-family: var(--font-family);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: border-color 0.2s;
+  outline: none;
+}
+
+.lang-btn:hover {
+  border-color: var(--color-primary);
+}
+
+.lang-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.lang-btn svg {
+  flex-shrink: 0;
+}
+
+/* ---------- Logo Placeholder ---------- */
+.logo-wrapper {
+  margin-top: 28px;
+  width: 220px;
+  height: 90px;
+  border: 2px dashed var(--color-primary);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: transparent;
+}
+
+.logo-icon {
+  width: 48px;
+  height: 48px;
+  border: 2px solid var(--color-primary);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--color-primary);
+}
+
+.logo-text-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.logo-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-primary);
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+.logo-sub {
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+/* ---------- Heading Block ---------- */
+.branding-heading {
+  margin-top: 28px;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.branding-heading h1 {
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1.2;
+}
+
+.branding-heading h1 .highlight {
+  color: var(--color-primary);
+  display: block;
+}
+
+.branding-desc {
+  margin-top: 12px;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  text-align: center;
+  line-height: 1.65;
+}
+
+/* ---------- Form Card ---------- */
+.form-card {
+  width: 100%;
+  max-width: 480px;
+  background: var(--color-white);
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+  box-shadow: 0 -4px 24px var(--color-shadow);
+  padding: 36px 32px 40px;
+  margin-top: 32px;
+  position: relative;
+  z-index: 2;
+  /* Card extends to bottom of viewport */
+  flex: 1;
+}
+
+/* ---------- Card Heading ---------- */
+.card-heading {
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+.card-heading h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1.3;
+}
+
+.card-desc {
+  font-size: 13.5px;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  text-align: center;
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+/* ---------- Form Groups ---------- */
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  margin-bottom: 6px;
+}
+
+/* ---------- Input Wrapper ---------- */
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  border: 1.5px solid var(--color-input-border);
+  border-radius: var(--radius-input);
+  background: var(--color-white);
+  height: var(--input-height);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  overflow: hidden;
+}
+
+.input-wrapper:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 4px rgba(7, 74, 207, 0.1);
+}
+
+.input-wrapper input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--color-text-primary);
+  padding: 0 16px;
+  height: 100%;
+}
+
+.input-wrapper input::placeholder {
+  color: var(--color-placeholder);
+  font-weight: 400;
+}
+
+/* ---------- Input Icon (right side) ---------- */
+.input-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px 0 0;
+  color: var(--color-placeholder);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  outline: none;
+  flex-shrink: 0;
+}
+
+.input-icon:focus-visible {
+  outline: 2px solid var(--color-primary);
+  border-radius: 6px;
+}
+
+/* ---------- Domain Input (with suffix) ---------- */
+.domain-input-wrapper {
+  display: flex;
+  border: 1.5px solid var(--color-primary);
+  border-radius: var(--radius-input);
+  overflow: hidden;
+  height: var(--input-height);
+  background: var(--color-white);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.domain-input-wrapper:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 4px rgba(7, 74, 207, 0.1);
+}
+
+.domain-input-wrapper input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--color-text-primary);
+  padding: 0 16px;
+  height: 100%;
+}
+
+.domain-input-wrapper input::placeholder {
+  color: var(--color-placeholder);
+}
+
+.domain-suffix {
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  border-left: 1.5px solid var(--color-input-border);
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: var(--color-white);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ---------- Remember Me & Forgot Password Row ---------- */
+.extras-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  margin-top: 4px;
+}
+
+.remember-me {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.remember-me input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--color-input-border);
+  border-radius: 5px;
+  background: var(--color-white);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.remember-me input[type="checkbox"]:checked {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.remember-me input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 6px;
+  height: 10px;
+  border: 2px solid #fff;
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg);
+}
+
+.remember-me input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.remember-me span {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--color-text-primary);
+}
+
+.forgot-link {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.forgot-link:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
+/* ---------- Primary Button ---------- */
+.btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: var(--btn-height);
+  background: var(--color-primary);
+  color: var(--color-white);
+  border: none;
+  border-radius: var(--radius-btn);
+  font-family: var(--font-family);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  outline: none;
+  letter-spacing: 0.01em;
+}
+
+.btn-primary:hover {
+  background: var(--color-primary-hover);
+}
+
+.btn-primary:active {
+  background: var(--color-primary-active);
+  transform: scale(0.98);
+}
+
+.btn-primary:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+/* ---------- Divider ---------- */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-input-border);
+}
+
+.divider span {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+/* ---------- Microsoft Button ---------- */
+.btn-microsoft {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: var(--btn-height);
+  background: var(--color-white);
+  color: var(--color-primary);
+  border: 1.5px solid var(--color-input-border);
+  border-radius: var(--radius-btn);
+  font-family: var(--font-family);
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  outline: none;
+  text-decoration: none;
+}
+
+.btn-microsoft:hover {
+  background: #f5f8ff;
+  border-color: var(--color-primary);
+}
+
+.btn-microsoft:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+/* Microsoft logo squares */
+.ms-logo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2.5px;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.ms-logo span {
+  display: block;
+  width: 9px;
+  height: 9px;
+}
+
+.ms-logo .ms-red   { background: #F25022; }
+.ms-logo .ms-green { background: #7FBA00; }
+.ms-logo .ms-blue  { background: #00A4EF; }
+.ms-logo .ms-yellow{ background: #FFB900; }
+
+/* ---------- Create Account Text ---------- */
+.create-account {
+  text-align: center;
+  margin-top: 20px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.create-account a {
+  color: var(--color-primary);
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.create-account a:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Back to Login Link ---------- */
+.back-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 24px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.back-link:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
+.back-link:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ---------- Forgot Password Description ---------- */
+.forgot-desc {
+  font-size: 13.5px;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  text-align: center;
+  line-height: 1.7;
+  margin-bottom: 28px;
+}
+
+/* ---------- Spacing Utility ---------- */
+.mt-20 { margin-top: 20px; }
+.mt-24 { margin-top: 24px; }
+.mb-0  { margin-bottom: 0; }
+
+/* ---------- Error State ---------- */
+.input-error {
+  border-color: #E53E3E !important;
+}
+
+.input-error:focus-within {
+  box-shadow: 0 0 0 4px rgba(229, 62, 62, 0.1) !important;
+}
+
+.error-msg {
+  font-size: 11.5px;
+  color: #E53E3E;
+  margin-top: 4px;
+  display: none;
+}
+
+.error-msg.visible {
+  display: block;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 520px) {
+  .form-card {
+    padding: 28px 20px 36px;
+    border-radius: 24px 24px 0 0;
+  }
+
+  .logo-wrapper {
+    width: 200px;
+    height: 80px;
+  }
+
+  .branding-heading h1 {
+    font-size: 26px;
+  }
+
+  .branding-desc {
+    font-size: 13px;
+  }
+
+  .top-section {
+    padding: 0 16px;
+  }
+}
+
+@media (min-width: 521px) and (max-width: 768px) {
+  .form-card {
+    max-width: 480px;
+  }
+}
+
+@media (min-width: 769px) {
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background: #e8eef7;
+  }
+
+  .page-wrapper {
+    max-width: 480px;
+    width: 100%;
+    min-height: 100vh;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 8px 48px rgba(16, 24, 40, 0.12);
+  }
+}
